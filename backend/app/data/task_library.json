@@ -1,0 +1,402 @@
+{
+  "tasks": {
+    "AUTHENTICATION": {
+      "baseline_tasks": [
+        {
+          "id": "auth_design",
+          "title": "Design authentication flows",
+          "role": "UI/UX Designer",
+          "base_hours": 8,
+          "description": "Design login, registration, and password reset screens"
+        },
+        {
+          "id": "auth_backend",
+          "title": "Implement JWT authentication",
+          "role": "Backend Developer",
+          "base_hours": 12,
+          "description": "Set up JWT tokens, refresh tokens, and middleware"
+        },
+        {
+          "id": "auth_frontend",
+          "title": "Build authentication UI",
+          "role": "Frontend Developer",
+          "base_hours": 10,
+          "description": "Create login, register, and reset password pages"
+        },
+        {
+          "id": "auth_security",
+          "title": "Implement security best practices",
+          "role": "Security Engineer",
+          "base_hours": 6,
+          "description": "Add rate limiting, password hashing, and session management"
+        },
+        {
+          "id": "auth_testing",
+          "title": "Test authentication flows",
+          "role": "QA Engineer",
+          "base_hours": 6,
+          "description": "Test login, registration, password reset, and session expiry"
+        }
+      ]
+    },
+    "USER_MANAGEMENT": {
+      "baseline_tasks": [
+        {
+          "id": "user_design",
+          "title": "Design user profiles",
+          "role": "UI/UX Designer",
+          "base_hours": 6,
+          "description": "Design user profile pages and settings"
+        },
+        {
+          "id": "user_backend",
+          "title": "Build user management API",
+          "role": "Backend Developer",
+          "base_hours": 10,
+          "description": "Create CRUD operations for users"
+        },
+        {
+          "id": "user_frontend",
+          "title": "Build user profile pages",
+          "role": "Frontend Developer",
+          "base_hours": 8,
+          "description": "Create profile view and edit pages"
+        },
+        {
+          "id": "user_testing",
+          "title": "Test user management",
+          "role": "QA Engineer",
+          "base_hours": 4,
+          "description": "Test profile creation, updates, and deletion"
+        }
+      ]
+    },
+    "PRODUCT_CATALOG": {
+      "baseline_tasks": [
+        {
+          "id": "product_design",
+          "title": "Design product catalog",
+          "role": "UI/UX Designer",
+          "base_hours": 12,
+          "description": "Design product listing, detail pages, and categories"
+        },
+        {
+          "id": "product_backend",
+          "title": "Build product API",
+          "role": "Backend Developer",
+          "base_hours": 16,
+          "description": "Create CRUD operations, filtering, sorting, and pagination"
+        },
+        {
+          "id": "product_frontend",
+          "title": "Build product pages",
+          "role": "Frontend Developer",
+          "base_hours": 14,
+          "description": "Create product list, detail, and category pages"
+        },
+        {
+          "id": "product_admin",
+          "title": "Build admin product management",
+          "role": "Full-Stack Developer",
+          "base_hours": 10,
+          "description": "Create admin interface for product CRUD"
+        },
+        {
+          "id": "product_testing",
+          "title": "Test product catalog",
+          "role": "QA Engineer",
+          "base_hours": 8,
+          "description": "Test CRUD operations, search, and filtering"
+        }
+      ]
+    },
+    "SEARCH": {
+      "baseline_tasks": [
+        {
+          "id": "search_backend",
+          "title": "Implement search functionality",
+          "role": "Backend Developer",
+          "base_hours": 12,
+          "description": "Set up Elasticsearch or database search"
+        },
+        {
+          "id": "search_frontend",
+          "title": "Build search interface",
+          "role": "Frontend Developer",
+          "base_hours": 8,
+          "description": "Create search bar, filters, and results pages"
+        },
+        {
+          "id": "search_testing",
+          "title": "Test search functionality",
+          "role": "QA Engineer",
+          "base_hours": 4,
+          "description": "Test search accuracy, filters, and performance"
+        }
+      ]
+    },
+    "CART": {
+      "baseline_tasks": [
+        {
+          "id": "cart_design",
+          "title": "Design shopping cart",
+          "role": "UI/UX Designer",
+          "base_hours": 8,
+          "description": "Design cart page and checkout flow"
+        },
+        {
+          "id": "cart_backend",
+          "title": "Build cart API",
+          "role": "Backend Developer",
+          "base_hours": 10,
+          "description": "Create add, remove, update, and checkout endpoints"
+        },
+        {
+          "id": "cart_frontend",
+          "title": "Build cart interface",
+          "role": "Frontend Developer",
+          "base_hours": 10,
+          "description": "Create cart page, mini-cart, and checkout flow"
+        },
+        {
+          "id": "cart_testing",
+          "title": "Test cart functionality",
+          "role": "QA Engineer",
+          "base_hours": 6,
+          "description": "Test add, remove, update, and checkout"
+        }
+      ]
+    },
+    "PAYMENT": {
+      "baseline_tasks": [
+        {
+          "id": "payment_design",
+          "title": "Design payment flows",
+          "role": "UI/UX Designer",
+          "base_hours": 10,
+          "description": "Design payment page and confirmation screens"
+        },
+        {
+          "id": "payment_business",
+          "title": "Select payment provider and setup",
+          "role": "CEO/Business Owner",
+          "base_hours": 4,
+          "description": "Research and select payment gateway (Stripe/PayPal)"
+        },
+        {
+          "id": "payment_backend",
+          "title": "Integrate payment gateway",
+          "role": "Backend Developer",
+          "base_hours": 16,
+          "description": "Implement payment processing, webhooks, and refunds"
+        },
+        {
+          "id": "payment_frontend",
+          "title": "Build payment UI",
+          "role": "Frontend Developer",
+          "base_hours": 10,
+          "description": "Create checkout form, payment confirmation, and error pages"
+        },
+        {
+          "id": "payment_security",
+          "title": "Implement payment security",
+          "role": "Security Engineer",
+          "base_hours": 8,
+          "description": "Set up PCI compliance, tokenization, and secure webhooks"
+        },
+        {
+          "id": "payment_testing",
+          "title": "Test payment processing",
+          "role": "QA Engineer",
+          "base_hours": 10,
+          "description": "Test success, failure, refund, and webhook scenarios"
+        }
+      ]
+    },
+    "ORDER_MANAGEMENT": {
+      "baseline_tasks": [
+        {
+          "id": "order_design",
+          "title": "Design order management",
+          "role": "UI/UX Designer",
+          "base_hours": 8,
+          "description": "Design order history, detail, and tracking pages"
+        },
+        {
+          "id": "order_backend",
+          "title": "Build order management API",
+          "role": "Backend Developer",
+          "base_hours": 12,
+          "description": "Create order creation, tracking, and status endpoints"
+        },
+        {
+          "id": "order_frontend",
+          "title": "Build order interface",
+          "role": "Frontend Developer",
+          "base_hours": 10,
+          "description": "Create order history, detail, and tracking pages"
+        },
+        {
+          "id": "order_testing",
+          "title": "Test order management",
+          "role": "QA Engineer",
+          "base_hours": 6,
+          "description": "Test order creation, tracking, and status updates"
+        }
+      ]
+    },
+    "ADMIN_PANEL": {
+      "baseline_tasks": [
+        {
+          "id": "admin_design",
+          "title": "Design admin dashboard",
+          "role": "UI/UX Designer",
+          "base_hours": 12,
+          "description": "Design admin dashboard layout and management pages"
+        },
+        {
+          "id": "admin_backend",
+          "title": "Build admin APIs",
+          "role": "Backend Developer",
+          "base_hours": 16,
+          "description": "Create admin-specific endpoints and permissions"
+        },
+        {
+          "id": "admin_frontend",
+          "title": "Build admin dashboard",
+          "role": "Frontend Developer",
+          "base_hours": 16,
+          "description": "Create admin dashboard with analytics and management tools"
+        },
+        {
+          "id": "admin_testing",
+          "title": "Test admin panel",
+          "role": "QA Engineer",
+          "base_hours": 8,
+          "description": "Test admin permissions, CRUD operations, and dashboards"
+        }
+      ]
+    },
+    "MOBILE_APP": {
+      "baseline_tasks": [
+        {
+          "id": "mobile_architecture",
+          "title": "Define mobile app architecture",
+          "role": "Mobile Developer",
+          "base_hours": 8,
+          "description": "Plan mobile app structure and API integration"
+        },
+        {
+          "id": "mobile_auth",
+          "title": "Build mobile authentication",
+          "role": "Mobile Developer",
+          "base_hours": 12,
+          "description": "Implement login, registration, and session handling"
+        },
+        {
+          "id": "mobile_ui",
+          "title": "Build mobile UI",
+          "role": "Mobile Developer",
+          "base_hours": 20,
+          "description": "Create mobile screens and navigation"
+        },
+        {
+          "id": "mobile_integration",
+          "title": "Integrate APIs with mobile app",
+          "role": "Mobile Developer",
+          "base_hours": 16,
+          "description": "Connect mobile app to backend APIs"
+        },
+        {
+          "id": "mobile_testing",
+          "title": "Test mobile app",
+          "role": "QA Engineer",
+          "base_hours": 10,
+          "description": "Test mobile app on iOS and Android"
+        }
+      ]
+    },
+    "REAL_TIME": {
+      "baseline_tasks": [
+        {
+          "id": "realtime_backend",
+          "title": "Implement WebSocket server",
+          "role": "Backend Developer",
+          "base_hours": 12,
+          "description": "Set up WebSocket connections and event handling"
+        },
+        {
+          "id": "realtime_frontend",
+          "title": "Implement client-side WebSocket",
+          "role": "Frontend Developer",
+          "base_hours": 8,
+          "description": "Add WebSocket client and real-time updates"
+        },
+        {
+          "id": "realtime_testing",
+          "title": "Test real-time functionality",
+          "role": "QA Engineer",
+          "base_hours": 6,
+          "description": "Test WebSocket connections, reconnection, and events"
+        }
+      ]
+    }
+  },
+  "global_tasks": {
+    "devops": [
+      {
+        "id": "devops_setup",
+        "title": "Set up cloud infrastructure",
+        "role": "DevOps Engineer",
+        "base_hours": 8,
+        "description": "Configure cloud services, networking, and security"
+      },
+      {
+        "id": "devops_ci_cd",
+        "title": "Set up CI/CD pipeline",
+        "role": "DevOps Engineer",
+        "base_hours": 8,
+        "description": "Configure GitHub Actions, Docker, and deployment"
+      },
+      {
+        "id": "devops_monitoring",
+        "title": "Set up monitoring and logging",
+        "role": "DevOps Engineer",
+        "base_hours": 6,
+        "description": "Configure logging, monitoring, and alerting"
+      }
+    ],
+    "testing": [
+      {
+        "id": "test_strategy",
+        "title": "Define testing strategy",
+        "role": "QA Engineer",
+        "base_hours": 4,
+        "description": "Create test plan and testing strategy"
+      },
+      {
+        "id": "test_automation",
+        "title": "Set up test automation",
+        "role": "QA Engineer",
+        "base_hours": 8,
+        "description": "Configure automated testing framework"
+      }
+    ],
+    "project_management": [
+      {
+        "id": "pm_planning",
+        "title": "Project planning and setup",
+        "role": "Product Manager",
+        "base_hours": 4,
+        "description": "Create project timeline and sprint planning"
+      },
+      {
+        "id": "pm_requirements",
+        "title": "Document requirements",
+        "role": "Product Manager",
+        "base_hours": 6,
+        "description": "Finalize and document project requirements"
+      }
+    ]
+  }
+}

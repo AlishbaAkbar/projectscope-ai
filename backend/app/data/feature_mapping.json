@@ -1,0 +1,82 @@
+{
+  "feature_normalization": {
+    "authentication": {
+      "synonyms": ["login", "sign in", "signin", "log in", "user auth", "authentication", "auth", "register", "sign up", "registration"],
+      "canonical_id": "AUTHENTICATION",
+      "complexity": 3,
+      "dependencies": ["USER_MANAGEMENT"]
+    },
+    "user_management": {
+      "synonyms": ["user accounts", "profiles", "user profiles", "account management", "users", "customer accounts"],
+      "canonical_id": "USER_MANAGEMENT",
+      "complexity": 2,
+      "dependencies": []
+    },
+    "product_catalog": {
+      "synonyms": ["products", "catalog", "product listing", "inventory", "product management", "items", "goods"],
+      "canonical_id": "PRODUCT_CATALOG",
+      "complexity": 4,
+      "dependencies": []
+    },
+    "search": {
+      "synonyms": ["product search", "search", "find products", "filter", "product filter"],
+      "canonical_id": "SEARCH",
+      "complexity": 4,
+      "dependencies": ["PRODUCT_CATALOG"]
+    },
+    "shopping_cart": {
+      "synonyms": ["cart", "basket", "shopping cart", "cart management", "add to cart"],
+      "canonical_id": "CART",
+      "complexity": 3,
+      "dependencies": ["PRODUCT_CATALOG", "AUTHENTICATION"]
+    },
+    "payment": {
+      "synonyms": ["payment", "checkout", "pay", "payment gateway", "stripe", "paypal", "credit card"],
+      "canonical_id": "PAYMENT",
+      "complexity": 5,
+      "dependencies": ["CART", "AUTHENTICATION"]
+    },
+    "order_management": {
+      "synonyms": ["orders", "order tracking", "order history", "track orders", "order management"],
+      "canonical_id": "ORDER_MANAGEMENT",
+      "complexity": 3,
+      "dependencies": ["PAYMENT", "PRODUCT_CATALOG"]
+    },
+    "admin_panel": {
+      "synonyms": ["admin", "dashboard", "admin dashboard", "back office", "admin panel", "management"],
+      "canonical_id": "ADMIN_PANEL",
+      "complexity": 5,
+      "dependencies": ["USER_MANAGEMENT", "PRODUCT_CATALOG", "ORDER_MANAGEMENT"]
+    },
+    "mobile_app": {
+      "synonyms": ["mobile app", "ios app", "android app", "phone app", "mobile"],
+      "canonical_id": "MOBILE_APP",
+      "complexity": 6,
+      "dependencies": ["AUTHENTICATION", "PRODUCT_CATALOG", "CART", "PAYMENT"]
+    },
+    "real_time": {
+      "synonyms": ["real time", "live", "websocket", "push notifications", "live updates"],
+      "canonical_id": "REAL_TIME",
+      "complexity": 5,
+      "dependencies": []
+    },
+    "reviews_ratings": {
+      "synonyms": ["reviews", "ratings", "product reviews", "feedback", "testimonials"],
+      "canonical_id": "REVIEWS",
+      "complexity": 3,
+      "dependencies": ["PRODUCT_CATALOG", "AUTHENTICATION"]
+    },
+    "notifications": {
+      "synonyms": ["notifications", "email notifications", "alerts", "email alerts", "push notifications"],
+      "canonical_id": "NOTIFICATIONS",
+      "complexity": 4,
+      "dependencies": ["USER_MANAGEMENT"]
+    },
+    "analytics": {
+      "synonyms": ["analytics", "reports", "insights", "dashboard analytics", "metrics"],
+      "canonical_id": "ANALYTICS",
+      "complexity": 4,
+      "dependencies": ["ORDER_MANAGEMENT", "USER_MANAGEMENT"]
+    }
+  }
+}

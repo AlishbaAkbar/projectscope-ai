@@ -1,24 +1,21 @@
+from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
-from typing import Optional, Literal
-from pydantic import BaseModel, ConfigDict, Field
-
-RequirementCategory = Literal["functional", "non_functional", "technical", "business"]
-
 
 class RequirementBase(BaseModel):
-    category: str = Field(default="functional", description="Requirement category: functional, non_functional, technical, business")
-    text: str = Field(..., min_length=1, description="Requirement statement")
-    source: str = Field(default="llm_analysis", description="Source origin of requirement")
-    confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")
-
+    text: str
+    category: Optional[str] = "general"
+    confidence: Optional[float] = 0.8
 
 class RequirementCreate(RequirementBase):
-    project_id: Optional[int] = None
-
+    project_id: int
+    source: Optional[str] = "user_input"
 
 class RequirementResponse(RequirementBase):
     id: int
     project_id: int
+    source: str
     created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
+    
+    class Config:
+        from_attributes = True

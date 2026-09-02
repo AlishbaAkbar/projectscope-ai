@@ -1,0 +1,84 @@
+{
+  "roles": [
+    {
+      "id": 1,
+      "name": "UI/UX Designer",
+      "hourly_rate": 45.0,
+      "description": "Designs user interfaces and user experiences",
+      "skills": ["Figma", "Adobe XD", "Sketch", "Prototyping", "User Research"],
+      "level": "Senior"
+    },
+    {
+      "id": 2,
+      "name": "Frontend Developer",
+      "hourly_rate": 50.0,
+      "description": "Builds user-facing web interfaces",
+      "skills": ["React", "Next.js", "TypeScript", "CSS", "HTML"],
+      "level": "Senior"
+    },
+    {
+      "id": 3,
+      "name": "Backend Developer",
+      "hourly_rate": 55.0,
+      "description": "Builds server-side logic and APIs",
+      "skills": ["Python", "FastAPI", "SQL", "Docker", "Redis"],
+      "level": "Senior"
+    },
+    {
+      "id": 4,
+      "name": "Full-Stack Developer",
+      "hourly_rate": 60.0,
+      "description": "Works on both frontend and backend",
+      "skills": ["React", "Python", "TypeScript", "SQL", "Docker"],
+      "level": "Senior"
+    },
+    {
+      "id": 5,
+      "name": "Mobile Developer",
+      "hourly_rate": 55.0,
+      "description": "Builds mobile applications",
+      "skills": ["React Native", "Flutter", "Swift", "Kotlin"],
+      "level": "Senior"
+    },
+    {
+      "id": 6,
+      "name": "QA Engineer",
+      "hourly_rate": 40.0,
+      "description": "Tests and ensures quality",
+      "skills": ["Selenium", "Jest", "Postman", "Test Automation"],
+      "level": "Mid"
+    },
+    {
+      "id": 7,
+      "name": "DevOps Engineer",
+      "hourly_rate": 60.0,
+      "description": "Manages infrastructure and deployment",
+      "skills": ["AWS", "Docker", "Kubernetes", "CI/CD", "Terraform"],
+      "level": "Senior"
+    },
+    {
+      "id": 8,
+      "name": "Security Engineer",
+      "hourly_rate": 65.0,
+      "description": "Ensures application security",
+      "skills": ["Penetration Testing", "OWASP", "Encryption", "Auth"],
+      "level": "Senior"
+    },
+    {
+      "id": 9,
+      "name": "Product Manager",
+      "hourly_rate": 50.0,
+      "description": "Manages product requirements and roadmap",
+      "skills": ["Agile", "Jira", "Requirements", "Strategy"],
+      "level": "Senior"
+    },
+    {
+      "id": 10,
+      "name": "CEO/Business Owner",
+      "hourly_rate": 75.0,
+      "description": "Strategic decision making and business management",
+      "skills": ["Strategy", "Leadership", "Business Planning"],
+      "level": "Executive"
+    }
+  ]
+}
