@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -108,3 +109,44 @@ class ExplanationResponse(BaseModel):
     detailed_explanations: List[Dict[str, Any]]
     assumptions: List[str]
     limitations: List[str]
+    knowledge_used: Optional[List[Dict[str, Any]]] = []
+
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    history: Optional[List[Dict[str, str]]] = []
+
+
+class ChatMessageResponse(BaseModel):
+    reply: str
+    citations: Optional[List[Dict[str, Any]]] = []
+    suggested_actions: Optional[List[str]] = []
+
+
+class FeedbackRequest(BaseModel):
+    rating: int
+    category: Optional[str] = "general"
+    comments: Optional[str] = None
+    tags: Optional[List[str]] = []
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    message: str
+    recorded_at: datetime
+
+
+class TechRecommendationItem(BaseModel):
+    name: str
+    category: str
+    role: str
+    rationale: str
+    pros: List[str] = []
+    alternatives: List[str] = []
+
+
+class TechStackResponse(BaseModel):
+    project_id: int
+    platform: str
+    recommendations: List[TechRecommendationItem]
+    architectural_notes: List[str] = []

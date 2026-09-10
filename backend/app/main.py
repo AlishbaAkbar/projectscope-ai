@@ -1,7 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import sys
 from contextlib import asynccontextmanager
+
+# Ensure UTF-8 output encoding for Windows consoles
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 from app.api.routes.projects import router as projects_router
 from app.database.session import init_db
@@ -38,6 +45,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
+app.include_router(projects_router, prefix="/api/v1/projects", tags=["Projects-Alias"])
 
 
 @app.get("/")

@@ -6,7 +6,8 @@ class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = None
     type: Optional[str] = None
-    organization_id: int
+    platform: Optional[str] = "web"
+    organization_id: Optional[int] = 1
 
 class ProjectCreate(ProjectBase):
     pass

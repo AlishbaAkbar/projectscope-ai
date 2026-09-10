@@ -33,7 +33,7 @@ class MLPredictor:
         self.feature_columns = preprocessor_data.get("feature_columns", [])
         
         self.is_loaded = True
-        print(f"✅ ML Predictor loaded")
+        print(f"[OK] ML Predictor loaded")
         print(f"   Model: {self.model_name}")
         print(f"   Features: {len(self.feature_columns)}")
     

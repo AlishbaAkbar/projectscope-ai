@@ -1,8 +1,18 @@
-import { Project, ProjectAnalysisResult, ProjectCreatePayload, Feature, Task } from '../types/project';
+import {
+  Project,
+  ProjectAnalysisResult,
+  ProjectCreatePayload,
+  Feature,
+  Task,
+  Requirement,
+  TechStackData,
+  ChatMessage,
+  FeedbackPayload,
+} from '../types/project';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   details?: any;
 
@@ -26,8 +36,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const errorMessage = data?.message || `Request failed with status ${response.status}`;
-      throw new ApiError(errorMessage, response.status, data?.details);
+      const errorMessage = data?.message || data?.detail || `Request failed with status ${response.status}`;
+      throw new ApiError(errorMessage, response.status, data?.details || data);
     }
 
     return data as T;
@@ -48,13 +58,19 @@ export const api = {
   createProject: async (payload: ProjectCreatePayload): Promise<Project> => {
     return request<Project>('/projects', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: payload.name,
+        description: payload.description,
+        type: payload.type || payload.platform || 'web',
+        platform: payload.platform || 'web',
+        organization_id: payload.organization_id || 1,
+      }),
     });
   },
 
   /** List all projects */
-  listProjects: async (skip = 0, limit = 50): Promise<Project[]> => {
-    return request<Project[]>(`/projects?skip=${skip}&limit=${limit}`);
+  listProjects: async (): Promise<Project[]> => {
+    return request<Project[]>('/projects');
   },
 
   /** Get project by ID */
@@ -62,9 +78,36 @@ export const api = {
     return request<Project>(`/projects/${projectId}`);
   },
 
+  /** Delete project by ID */
+  deleteProject: async (projectId: number): Promise<void> => {
+    return request<void>(`/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  },
+
   /** Run AI Requirement Analysis pipeline on project */
   analyzeProject: async (projectId: number): Promise<ProjectAnalysisResult> => {
-    return request<ProjectAnalysisResult>(`/projects/${projectId}/analyze`, {
+    const result = await request<ProjectAnalysisResult>(`/projects/${projectId}/analyze`, {
+      method: 'POST',
+    });
+    // Fetch project details to accompany result if needed
+    try {
+      const project = await api.getProject(projectId);
+      result.project = project;
+    } catch {
+      // Keep result as is
+    }
+    return result;
+  },
+
+  /** Get requirements for project */
+  getRequirements: async (projectId: number): Promise<Requirement[]> => {
+    return request<Requirement[]>(`/projects/${projectId}/requirements`);
+  },
+
+  /** Add a requirement */
+  addRequirement: async (projectId: number, text: string, category = 'general'): Promise<any> => {
+    return request<any>(`/projects/${projectId}/requirements?text=${encodeURIComponent(text)}&category=${encodeURIComponent(category)}`, {
       method: 'POST',
     });
   },
@@ -78,4 +121,40 @@ export const api = {
   getTasks: async (projectId: number): Promise<Task[]> => {
     return request<Task[]>(`/projects/${projectId}/tasks`);
   },
+
+  /** Send chat message to AI assistant */
+  sendChatMessage: async (projectId: number, message: string, history: Array<{ role: string; content: string }> = []): Promise<{
+    reply: string;
+    citations?: any[];
+    suggested_actions?: string[];
+  }> => {
+    return request<{ reply: string; citations?: any[]; suggested_actions?: string[] }>(`/projects/${projectId}/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message, history }),
+    });
+  },
+
+  /** Submit feedback */
+  submitFeedback: async (projectId: number, payload: FeedbackPayload): Promise<any> => {
+    return request<any>(`/projects/${projectId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** Get tech stack recommendations */
+  getTechStack: async (projectId: number): Promise<TechStackData> => {
+    return request<TechStackData>(`/projects/${projectId}/tech-stack`);
+  },
+
+  /** Search RAG knowledge base */
+  searchKnowledgeBase: async (query: string): Promise<any> => {
+    return request<any>(`/rag/search?query=${encodeURIComponent(query)}`);
+  },
+
+  /** Get RAG knowledge base stats */
+  getKnowledgeStats: async (): Promise<any> => {
+    return request<any>('/rag/stats');
+  },
 };
+
