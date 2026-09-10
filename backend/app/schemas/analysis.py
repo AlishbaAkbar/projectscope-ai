@@ -72,6 +72,7 @@ class ProjectAnalysisResult(BaseModel):
     cost: Optional[Dict] = None  # ✅ NEW
     risks: Optional[RiskSummaryResponse] = None  # ✅ NEW
     hybrid_estimate: Optional[HybridEstimateResponse] = None  # ✅ NEW
+    explanation: Optional[ExplanationResponse] = None  # ✅ NEW
 
 class MilestoneResponse(BaseModel):
     name: str
@@ -99,3 +100,11 @@ class HybridEstimateResponse(BaseModel):
     timestamp: str
     breakdown: Dict[str, float]
     weights_used: Dict[str, float]
+
+
+class ExplanationResponse(BaseModel):
+    summary: str
+    explanations: Dict[str, str]
+    detailed_explanations: List[Dict[str, Any]]
+    assumptions: List[str]
+    limitations: List[str]

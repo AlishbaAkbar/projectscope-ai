@@ -14,6 +14,7 @@ from app.estimation.hybrid_engine import HybridEngine
 from app.models.project import Project, Requirement
 from app.models.feature import Feature
 from app.models.task import Task
+from app.estimation.explanation_engine import ExplanationEngine
 
 from app.estimation.rules_engine import EstimationEngine
 from app.estimation.cost_engine import CostEngine
@@ -720,7 +721,7 @@ async def analyze_project(
             cost=cost_result,
             risks=risk_summary
         )
-
+        
         # ============================================
         # PHASE 17: HYBRID ESTIMATION
         # ============================================
@@ -806,7 +807,44 @@ async def analyze_project(
             risks=risk_summary,
             hybrid_estimate=hybrid_response["hybrid_estimate"]  # ✅ NEW
         )
-    
+        # ============================================
+        # PHASE 18: EXPLAINABLE AI
+        # ============================================
+        from app.estimation.explanation_engine import ExplanationEngine
+        
+        explanation_engine = ExplanationEngine()
+        
+        explanation_result = explanation_engine.explain_project(
+            features=feature_names,
+            complexities=feature_complexities,
+            total_hours=final_total_hours,
+            total_cost=cost_result["total"]["expected"],
+            timeline_days=formatted_timeline.get("total_days", 0),
+            risks=risk_summary,
+            complexity_score=complexity_score,
+            hybrid_estimate=hybrid_response.get("hybrid_estimate")
+        )
+        
+        explanation_response = explanation_engine.get_formatted_explanation(explanation_result)
+        
+        # ============================================
+        # 12. RETURN FINAL RESULT
+        # ============================================
+        return ProjectAnalysisResult(
+            project_id=project_id,
+            features=features,
+            tasks=tasks,
+            roles=list(summary.keys()),
+            total_estimated_hours=final_total_hours,
+            complexity_score=complexity_score,
+            risk_level=final_risk_level,
+            summary=summary,
+            timeline=formatted_timeline,
+            cost=cost_result,
+            risks=risk_summary,
+            hybrid_estimate=hybrid_response["hybrid_estimate"],
+            explanation=explanation_response  # ✅ NEW
+        )
     except Exception as e:
         print(f"Error in analyze: {e}")
         import traceback
