@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.models.project import Project, Requirement
+from app.models.project import Project, Requirement, Organization
 from app.models.feature import Feature
 from app.models.task import Task
 from app.schemas.project import ProjectCreate, ProjectUpdate
@@ -12,11 +12,26 @@ class ProjectService:
         self.db = db
     
     def create_project(self, project_data: ProjectCreate) -> Project:
+        """Create a new project"""
+        # Ensure organization exists
+        org = self.db.query(Organization).first()
+        if not org:
+            org = Organization(name="Default Organization", plan="free")
+            self.db.add(org)
+            self.db.commit()
+            self.db.refresh(org)
+        
         project = Project(
             name=project_data.name,
             description=project_data.description,
-            type=project_data.type,
-            organization_id=project_data.organization_id,
+            type=getattr(project_data, "type", None) or getattr(project_data, "platform", "web"),
+            platform=getattr(project_data, "platform", "Web"),
+            industry=getattr(project_data, "industry", None),
+            budget=getattr(project_data, "budget", None),
+            timeline=getattr(project_data, "timeline", None),
+            target_users=getattr(project_data, "target_users", []) or [],
+            constraints=getattr(project_data, "constraints", []) or [],
+            organization_id=getattr(project_data, "organization_id", None) or org.id,
             status="draft"
         )
         self.db.add(project)
@@ -47,7 +62,6 @@ class ProjectService:
         project = self.get_project(project_id)
         if not project:
             return False
-        
         self.db.delete(project)
         self.db.commit()
         return True

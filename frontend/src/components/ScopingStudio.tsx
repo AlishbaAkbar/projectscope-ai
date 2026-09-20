@@ -14,12 +14,10 @@ import {
   AlertTriangle,
   Cpu,
   Rocket,
-  Wand2,
   Users,
   CheckCircle2,
   LayoutGrid,
   Bot,
-  Sliders,
 } from 'lucide-react';
 
 import { OverviewTab } from './studio/OverviewTab';
@@ -56,6 +54,15 @@ type TabKey =
   | 'mvp'
   | 'tech-stack';
 
+// ✅ FIXED: Proper tab type with optional count and badge
+interface TabConfig {
+  key: TabKey;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  count?: number;
+  badge?: string;
+}
+
 export const ScopingStudio: React.FC<ScopingStudioProps> = ({
   result,
   onReanalyze,
@@ -71,19 +78,20 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
   const workingDays = result.timeline?.total_working_days || Math.round(totalHours / 16);
   const riskLevel = result.risk_level || 'HIGH';
 
-  const TABS = [
+  // ✅ FIXED: Explicitly type the TABS array
+  const TABS: TabConfig[] = [
     { key: 'overview', label: 'Overview', icon: LayoutGrid },
     { key: 'chat', label: 'AI Chat & Refine', icon: Bot, badge: 'RAG' },
-    { key: 'requirements', label: 'Requirements', icon: Sparkles, count: result.features.length ? undefined : undefined },
-    { key: 'features', label: 'Features', icon: Layers, count: result.features.length },
-    { key: 'tasks', label: 'Tasks Breakdown', icon: ListTodo, count: result.tasks.length },
+    { key: 'requirements', label: 'Requirements', icon: Sparkles },
+    { key: 'features', label: 'Features', icon: Layers, count: result.features?.length || 0 },
+    { key: 'tasks', label: 'Tasks Breakdown', icon: ListTodo, count: result.tasks?.length || 0 },
     { key: 'team', label: 'Team Allocation', icon: Users },
     { key: 'cost', label: 'Cost Modeling', icon: DollarSign },
     { key: 'timeline', label: 'Timeline & Critical Path', icon: Calendar },
     { key: 'risks', label: 'Risk Matrix', icon: AlertTriangle },
     { key: 'mvp', label: 'MVP Scoping', icon: Rocket, badge: 'Interactive' },
     { key: 'tech-stack', label: 'Tech Stack', icon: Cpu },
-  ] as const;
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -107,7 +115,8 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
             </h1>
 
             <p className="text-xs text-slate-500 max-w-2xl line-clamp-2 leading-relaxed">
-              {result.project?.description || 'Natural language project description analyzed into technical specification.'}
+              {result.project?.description ||
+                'Natural language project description analyzed into technical specification.'}
             </p>
           </div>
 
@@ -126,7 +135,11 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
               disabled={isReanalyzing}
               className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-sm transition-all flex items-center space-x-1.5 disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isReanalyzing ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-slate-500 ${
+                  isReanalyzing ? 'animate-spin' : ''
+                }`}
+              />
               <span>{isReanalyzing ? 'Re-analyzing...' : 'Re-Analyze'}</span>
             </button>
 
@@ -154,7 +167,9 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
               Estimated Effort
             </span>
-            <span className="text-base font-black text-slate-900">{totalHours.toFixed(0)} Hours</span>
+            <span className="text-base font-black text-slate-900">
+              {totalHours.toFixed(0)} Hours
+            </span>
           </div>
 
           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -191,7 +206,7 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as TabKey)}
+                onClick={() => setActiveTab(tab.key)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-sm'
@@ -201,9 +216,10 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
                 <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-slate-500'}`} />
                 <span>{tab.label}</span>
 
-                {tab.count !== undefined && (
+                {/* ✅ FIXED: Only show count when defined and > 0 */}
+                {tab.count !== undefined && tab.count > 0 && (
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
                       isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
@@ -213,7 +229,7 @@ export const ScopingStudio: React.FC<ScopingStudioProps> = ({
 
                 {tab.badge && (
                   <span
-                    className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase ${
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
                       isActive ? 'bg-sky-500 text-white' : 'bg-sky-100 text-sky-800'
                     }`}
                   >

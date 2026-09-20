@@ -8,7 +8,6 @@ import {
   Smartphone,
   Globe,
   Server,
-  Monitor,
   CheckCircle2,
   DollarSign,
   Calendar,
@@ -70,7 +69,8 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [autoAnalyze, setAutoAnalyze] = useState(true);
 
   if (!isOpen) return null;
-
+  console.log('✅ Rendering modal content');
+  
   const handleApplyTemplate = (tpl: (typeof TEMPLATES)[0]) => {
     setName(tpl.name);
     setDescription(tpl.desc);

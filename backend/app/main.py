@@ -1,51 +1,47 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-import sys
 from contextlib import asynccontextmanager
-
-# Ensure UTF-8 output encoding for Windows consoles
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 from app.api.routes.projects import router as projects_router
 from app.database.session import init_db
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("projectscope")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    logger.info("Starting ProjectScope AI in development mode...")
+    logger.info("Starting ProjectScope AI...")
     init_db()
     yield
-    logger.info("Shutting down ProjectScope AI...")
+    logger.info("Shutting down...")
 
 
 app = FastAPI(
     title="ProjectScope AI",
     version="0.1.0",
     description="AI-powered software requirement analysis and project scoping engine.",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False,
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
-# Include routers
 app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
-app.include_router(projects_router, prefix="/api/v1/projects", tags=["Projects-Alias"])
 
 
 @app.get("/")

@@ -62,18 +62,18 @@ class AnalysisResponse(BaseModel):
 
 class ProjectAnalysisResult(BaseModel):
     project_id: int
-    features: List[FeatureResponse]
-    tasks: List[TaskResponse]
-    roles: List[str]
-    total_estimated_hours: float
-    complexity_score: int
-    risk_level: str
-    summary: dict
-    timeline: Optional[TimelineResponse] = None  # ✅ NEW
-    cost: Optional[Dict] = None  # ✅ NEW
-    risks: Optional[RiskSummaryResponse] = None  # ✅ NEW
-    hybrid_estimate: Optional[HybridEstimateResponse] = None  # ✅ NEW
-    explanation: Optional[ExplanationResponse] = None  # ✅ NEW
+    features: List[FeatureResponse] = []
+    tasks: List[TaskResponse] = []
+    roles: List[str] = []
+    total_estimated_hours: float = 0
+    complexity_score: float = 0
+    risk_level: str = "LOW"
+    summary: Dict[str, Any] = {}
+    timeline: Optional[Dict[str, Any]] = None
+    cost: Optional[Dict[str, Any]] = None
+    risks: Optional[Dict[str, Any]] = None
+    hybrid_estimate: Optional[Dict[str, Any]] = None
+    explanation: Optional[ExplanationResponse] = None
 
 class MilestoneResponse(BaseModel):
     name: str

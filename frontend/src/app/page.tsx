@@ -196,10 +196,16 @@ export default function HomePage() {
         {!isLoading && activeView === 'landing' && (
           <LandingPage
             onOpenCreate={() => {
+              console.log('🔵 onOpenCreate called');
               setCreatePreset(null);
               setIsCreateOpen(true);
+              console.log('🔵 isCreateOpen set to true');
             }}
-            onSelectPreset={handlePresetSelect}
+            onSelectPreset={(preset) => {
+              console.log('🟢 onSelectPreset called:', preset);
+              setCreatePreset(preset);
+              setIsCreateOpen(true);
+            }}
             onGoToDashboard={() => setActiveView('dashboard')}
           />
         )}
