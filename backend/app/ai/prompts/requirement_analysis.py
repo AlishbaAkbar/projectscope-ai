@@ -13,6 +13,7 @@ CRITICAL INSTRUCTIONS:
 - You must output ONLY valid, raw JSON conforming strictly to the requested schema.
 - Do NOT include markdown code blocks, conversational text, explanations, or commentary outside the JSON.
 - Never calculate monetary costs or timelines. Keep outputs strictly focused on scope, requirements, features, and engineering assumptions.
+- Do NOT fabricate information not present in the description. Add ambiguous items to missing_information. Lower confidence for uncertain requirements.
 """
 
 USER_PROMPT_TEMPLATE = """Analyze the following software project idea and produce a structured requirement specification.

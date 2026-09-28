@@ -91,14 +91,23 @@ class TimelineEngine:
     
     def add_tasks_from_list(self, tasks: List[Dict]):
         """Add multiple tasks from a list"""
-        for task in tasks:
-            self.add_task(
-                task_id=task.get("id", f"task_{len(self.task_nodes)}"),
+        task_list = list(tasks)
+        for index, task in enumerate(task_list):
+            task_id = str(task.get("id", f"task_{index}"))
+            node = TaskNode(
+                id=task_id,
                 title=task.get("title", "Task"),
                 hours=task.get("estimated_hours", 0),
                 role_id=task.get("role_id", 0),
-                dependencies=task.get("dependencies", [])
+                dependencies=[str(dependency) for dependency in task.get("dependencies", [])],
             )
+            self.task_nodes[task_id] = node
+            self.graph.add_node(task_id, hours=node.hours)
+
+        for task_id, node in self.task_nodes.items():
+            for dependency in node.dependencies:
+                if dependency in self.task_nodes:
+                    self.graph.add_edge(dependency, task_id)
     
     def calculate(self) -> TimelineResult:
         """
@@ -109,6 +118,9 @@ class TimelineEngine:
         """
         if not self.task_nodes:
             return self._empty_result()
+
+        if not nx.is_directed_acyclic_graph(self.graph):
+            raise ValueError("Task dependency graph contains a cycle")
         
         # 1. Calculate earliest start/finish (forward pass)
         self._calculate_earliest_times()
@@ -160,8 +172,7 @@ class TimelineEngine:
         try:
             topo_order = list(nx.topological_sort(self.graph))
         except nx.NetworkXUnfeasible:
-            # Handle cycles by using all nodes
-            topo_order = list(self.graph.nodes())
+            raise ValueError("Task dependency graph contains a cycle") from None
         
         for node_id in topo_order:
             node = self.task_nodes[node_id]
@@ -189,7 +200,7 @@ class TimelineEngine:
         try:
             reverse_order = list(reversed(list(nx.topological_sort(self.graph))))
         except nx.NetworkXUnfeasible:
-            reverse_order = list(reversed(list(self.graph.nodes())))
+            raise ValueError("Task dependency graph contains a cycle") from None
         
         # Get end date
         end_date = self._calculate_end_date()
@@ -220,37 +231,41 @@ class TimelineEngine:
     
     def _calculate_slack_and_critical(self):
         """Calculate slack time and identify critical tasks"""
+        critical_path = set(self._get_critical_path())
         for node in self.task_nodes.values():
             if node.earliest_start and node.latest_start:
                 slack = (node.latest_start - node.earliest_start).total_seconds() / 3600
-                node.slack = slack
-                node.is_critical = slack < 1.0  # Less than 1 hour slack = critical
-    
+                node.is_critical = node.id in critical_path
+                node.slack = 0 if node.is_critical else max(0, slack)
+
     def _get_critical_path(self) -> List[str]:
-        """Get critical path (tasks with zero slack)"""
-        path = []
-        current = None
-        
-        # Find task with earliest start
-        for node in self.task_nodes.values():
-            if node.is_critical:
-                if not current or node.earliest_start < self.task_nodes[current].earliest_start:
-                    current = node.id
-        
-        if not current:
+        """Return the longest dependency chain by estimated working hours."""
+        try:
+            topological_order = list(nx.topological_sort(self.graph))
+        except nx.NetworkXUnfeasible:
+            raise ValueError("Task dependency graph contains a cycle") from None
+
+        longest_finish = {}
+        previous_task = {}
+        for task_id in topological_order:
+            predecessors = list(self.graph.predecessors(task_id))
+            previous_task[task_id] = max(
+                predecessors,
+                key=lambda predecessor: longest_finish[predecessor],
+                default=None,
+            )
+            predecessor_hours = longest_finish.get(previous_task[task_id], 0)
+            longest_finish[task_id] = predecessor_hours + self.task_nodes[task_id].hours
+
+        if not longest_finish:
             return []
-        
-        # Trace critical path
-        while current:
+
+        current = max(longest_finish, key=longest_finish.get)
+        path = []
+        while current is not None:
             path.append(current)
-            # Find next critical task in path
-            next_task = None
-            for dep_id in self.graph.successors(current):
-                if dep_id in self.task_nodes and self.task_nodes[dep_id].is_critical:
-                    next_task = dep_id
-                    break
-            current = next_task
-        
+            current = previous_task[current]
+        path.reverse()
         return path
     
     def _calculate_end_date(self) -> datetime:
@@ -361,22 +376,16 @@ class TimelineEngine:
         remaining_hours = hours
         
         while remaining_hours > 0:
-            # Move to next day if needed
-            if current.hour >= 17:  # 5 PM
-                current = current.replace(hour=9, minute=0) + timedelta(days=1)
-                while current.weekday() >= 5:  # Saturday/Sunday
-                    current += timedelta(days=1)
-            
-            # Calculate hours for today
-            hours_today = min(remaining_hours, 8)
-            current += timedelta(hours=hours_today)
-            remaining_hours -= hours_today
-            
-            # Check if we reached end of day
-            if current.hour >= 17:
-                current = current.replace(hour=9, minute=0) + timedelta(days=1)
+            if current.weekday() >= 5 or current.hour >= 17:
+                current = current.replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=1)
                 while current.weekday() >= 5:
                     current += timedelta(days=1)
+                continue
+
+            available_hours = 17 - current.hour - current.minute / 60
+            hours_today = min(remaining_hours, available_hours)
+            current += timedelta(hours=hours_today)
+            remaining_hours -= hours_today
         
         return current
     
@@ -386,22 +395,16 @@ class TimelineEngine:
         remaining_hours = hours
         
         while remaining_hours > 0:
-            # Move to previous day if needed
-            if current.hour < 9:  # Before 9 AM
+            if current.weekday() >= 5 or current.hour <= 9:
                 current = current.replace(hour=17, minute=0) - timedelta(days=1)
                 while current.weekday() >= 5:
                     current -= timedelta(days=1)
-            
-            # Calculate hours for today
-            hours_today = min(remaining_hours, 8)
+                continue
+
+            available_hours = current.hour - 9 + current.minute / 60
+            hours_today = min(remaining_hours, available_hours)
             current -= timedelta(hours=hours_today)
             remaining_hours -= hours_today
-            
-            # Check if we reached start of day
-            if current.hour < 9:
-                current = current.replace(hour=17, minute=0) - timedelta(days=1)
-                while current.weekday() >= 5:
-                    current -= timedelta(days=1)
         
         return current
     

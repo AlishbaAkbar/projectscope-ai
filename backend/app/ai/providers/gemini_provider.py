@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 import httpx
 from app.ai.providers.base import LLMProvider
+from app.core.config import settings
 from app.utils.error_handlers import LLMProviderException
 
 logger = logging.getLogger(__name__)
@@ -11,26 +12,40 @@ logger = logging.getLogger(__name__)
 class GeminiProvider(LLMProvider):
     """Google Gemini AI Provider implementation via REST API"""
 
-    def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = 30.0):
+    def __init__(self, api_key: str, model: Optional[str] = None, timeout: Optional[float] = None):
         if not api_key:
             raise LLMProviderException("Gemini API key is required but was not provided.", provider="gemini")
         self.api_key = api_key
-        self.model = model or "gemini-2.5-flash"
-        self.timeout = timeout
+        self.model = model or settings.AI_MODEL
+        self.timeout = min(timeout, settings.AI_TIMEOUT_SECONDS) if timeout else settings.AI_TIMEOUT_SECONDS
+        self.max_retries = max(0, settings.AI_MAX_RETRIES)
+        self.max_prompt_length = settings.MAX_PROMPT_LENGTH
         self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
 
     async def analyze(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         return await self.generate(prompt, system_prompt)
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        for attempt in range(3):
+        bounded_prompt = prompt[:self.max_prompt_length]
+        for attempt in range(self.max_retries + 1):
             try:
-                return await self._call_gemini(prompt, system_prompt)
-            except LLMProviderException as exc:
-                if "503" not in str(exc) or attempt == 2:
+                return await self._call_gemini(bounded_prompt, system_prompt)
+            except (LLMProviderException, httpx.TimeoutException) as exc:
+                message = str(exc).lower()
+                transient = (
+                    isinstance(exc, httpx.TimeoutException)
+                    or any(code in message for code in ("429", "503", "unavailable", "timed out", "timeout"))
+                )
+                if not transient or attempt >= self.max_retries:
                     raise
-                delay = 2 ** attempt
-                logger.warning("Gemini returned 503; retrying in %s seconds (attempt %s/3).", delay, attempt + 2)
+                delay = min(2 ** attempt, 8)
+                logger.warning(
+                    "Transient Gemini failure; retrying in %s seconds (attempt %s/%s): %s",
+                    delay,
+                    attempt + 2,
+                    self.max_retries + 1,
+                    exc,
+                )
                 await asyncio.sleep(delay)
 
         raise LLMProviderException("Gemini request failed after retries.", provider="gemini")
@@ -73,7 +88,7 @@ class GeminiProvider(LLMProvider):
                 return content_parts[0].get("text", "")
 
         except httpx.TimeoutException:
-            raise LLMProviderException(f"Request timed out after {self.timeout}s.", provider="gemini")
+            raise LLMProviderException(f"Gemini request timed out after {self.timeout}s.", provider="gemini")
         except httpx.RequestError as e:
             raise LLMProviderException(f"Network error connecting to Gemini API: {str(e)}", provider="gemini")
         except LLMProviderException:

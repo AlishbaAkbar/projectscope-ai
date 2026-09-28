@@ -251,17 +251,35 @@ class MockLLMProvider(BaseProvider):
         
         # 4. If nothing detected, use fallback
         if not requirements:
-            requirements = [
-                {"text": "System must support user accounts and authentication", "category": "functional", "feature": "AUTHENTICATION", "confidence": 0.8},
-                {"text": "System must have an admin dashboard", "category": "functional", "feature": "ADMIN_PANEL", "confidence": 0.8},
-                {"text": "System must be secure and scalable", "category": "non_functional", "feature": "NON_FUNCTIONAL", "confidence": 0.8},
-            ]
-            detected_features = {"AUTHENTICATION", "ADMIN_PANEL"}
-        
+            requirements = []
+
+        missing_information = []
+        if not requirements:
+            missing_information.append("What primary actions should users be able to perform?")
+        if project_type == "healthcare" and not any(
+            keyword in description for keyword in ("hipaa", "privacy", "compliance", "regulation")
+        ):
+            missing_information.append("What healthcare privacy and regulatory requirements apply?")
+
+        personas = (
+            ("patient", ("patient",)),
+            ("doctor", ("doctor", "physician", "clinician")),
+            ("admin", ("admin", "administrator")),
+            ("student", ("student",)),
+            ("driver", ("driver",)),
+            ("restaurant staff", ("restaurant",)),
+            ("customer", ("customer", "shopper", "buyer")),
+        )
+        users = [
+            persona
+            for persona, keywords in personas
+            if any(keyword in description for keyword in keywords)
+        ]
+
         # 5. Build final response
         return {
             "project_type": project_type,
-            "users": ["user", "admin"],
+            "users": users,
             "requirements": requirements,
             "features": [
                 {
@@ -273,7 +291,7 @@ class MockLLMProvider(BaseProvider):
                 }
                 for feat in sorted(detected_features)
             ],
-            "missing_information": [],
+            "missing_information": missing_information,
             "assumptions": [
                 "Project scope remains stable",
                 "Required resources are available",

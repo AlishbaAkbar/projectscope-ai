@@ -160,3 +160,57 @@ class MLDataset:
             "target_max": df["target"].max() if "target" in df.columns else 0,
             "feature_columns": [c for c in df.columns if c not in ["project_id", "target"]]
         }
+    def load_and_normalize(self, filepath: str = "ml/data/dataset.csv") -> pd.DataFrame:
+
+    
+        df = pd.read_csv(filepath)
+        
+        # Column mapping from CSV → ML schema
+        column_map = {
+            "Project_ID": "project_id",
+            "Project_Type": "project_type",
+            "Platform": "platform",
+            "Number_of_Features": "num_features",
+            "Number_of_Tasks": "num_tasks",
+            "Number_of_Team_Roles": "num_roles",
+            "Total_Combined_Feature_Complexity": "complexity_sum",
+            "Average_Feature_Complexity": "avg_complexity",
+            "Maximum_Feature_Complexity": "max_complexity",
+            "Payment_Integration": "has_payment",
+            "Authentication": "has_auth",
+            "Admin_Panel": "has_admin",
+            "Mobile_Application": "has_mobile",
+            "Real_Time_Features": "has_realtime",
+            "AI_ML_Features": "has_ai_ml",
+            "Number_of_External_Integrations": "num_integrations",
+            "Number_of_Requirements": "num_requirements",
+            "Security_Level_1_5": "security_level",
+            "Database_Complexity_1_5": "database_complexity",
+            "Actual_Team_Size": "team_size",
+            "Team_Seniority_1_5": "team_seniority",
+            "Actual_Hours_Spent": "target",
+        }
+        
+        df = df.rename(columns=column_map)
+        
+        # Convert Yes/No to 1/0
+        binary_cols = ["has_payment", "has_auth", "has_admin", "has_mobile", "has_realtime", "has_ai_ml"]
+        for col in binary_cols:
+            if col in df.columns:
+                df[col] = df[col].map({"Yes": 1, "No": 0}).fillna(0).astype(int)
+        
+        # Ensure numeric columns are numeric
+        numeric_cols = [
+            "num_features", "num_tasks", "num_roles", "complexity_sum",
+            "avg_complexity", "max_complexity", "num_integrations",
+            "num_requirements", "security_level", "database_complexity",
+            "team_size", "team_seniority", "target",
+        ]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+        
+        # Drop rows with missing target
+        df = df.dropna(subset=["target"])
+        
+        return df

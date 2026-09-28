@@ -3,11 +3,14 @@ Phase 23: Audit Service
 """
 
 from typing import Optional, Dict, Any
+import logging
 from sqlalchemy.orm import Session
 from fastapi import Request
 
 from app.models.audit import AuditLog
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AuditService:
@@ -55,10 +58,9 @@ class AuditService:
         try:
             self.db.add(log)
             self.db.commit()
-        except Exception as e:
-            # Never crash the request due to audit log failure
+        except Exception:
             self.db.rollback()
-            print(f"⚠️ Audit log failed: {e}")
+            logger.exception("Audit log persistence failed")
     
     # ============================================
     # SPECIFIC AUDIT HELPERS

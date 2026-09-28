@@ -1,46 +1,12 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from app.schemas.tasks import TaskResponse
 from app.schemas.features import FeatureResponse
 from app.schemas.project import ProjectResponse
-
-
-class AIRequirement(BaseModel):
-    text: str = Field(min_length=1)
-    category: str = "functional"
-    confidence: float = Field(default=0.8, ge=0, le=1)
-
-
-class AIFeature(BaseModel):
-    name: Optional[str] = None
-    canonical_name: Optional[str] = None
-    description: str = ""
-    priority: str = "MEDIUM"
-    complexity: Union[int, str] = 3
-    confidence: float = Field(default=0.8, ge=0, le=1)
-
-    @model_validator(mode="after")
-    def require_name(self):
-        if not (self.canonical_name or self.name):
-            raise ValueError("Feature must include a name or canonical_name")
-        return self
-
-
-class RawAIAnalysisResponse(BaseModel):
-    project_type: str
-    description: str = ""
-    requirements: List[AIRequirement] = Field(min_length=1)
-    features: List[AIFeature] = Field(min_length=1)
-    users: List[str] = Field(default_factory=list)
-    technologies: List[str] = Field(default_factory=list)
-    integrations: List[str] = Field(default_factory=list)
-    missing_information: List[str] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
-    estimated_complexity: str = "MEDIUM"
-    confidence: float = 0.7
+from app.ai.schemas import RawAnalysisResponse as RawAIAnalysisResponse
 
 
 class AnalysisRequest(BaseModel):

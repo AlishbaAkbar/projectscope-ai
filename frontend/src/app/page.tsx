@@ -8,12 +8,20 @@ import { DashboardView } from '../components/DashboardView';
 import { ScopingStudio } from '../components/ScopingStudio';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { AuthModal } from '../components/AuthModal';
-import { api } from '../api/client';
-import { Project, ProjectAnalysisResult, ProjectCreatePayload, UserSession } from '../types/project';
-import { Sparkles, AlertCircle, Plus, Layers, ArrowLeft } from 'lucide-react';
+import { LoginModal } from '../components/LoginModal';
+import { api, authStorage } from '../api/client';
+import {
+  Project,
+  ProjectAnalysisResult,
+  ProjectCreatePayload,
+  UserSession,
+} from '../types/project';
+import { Sparkles, AlertCircle, Layers } from 'lucide-react';
 
 export default function HomePage() {
-  const [activeView, setActiveView] = useState<'landing' | 'dashboard' | 'studio' | 'knowledge'>('landing');
+  const [activeView, setActiveView] = useState<
+    'landing' | 'dashboard' | 'studio' | 'knowledge'
+  >('landing');
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentResult, setCurrentResult] = useState<ProjectAnalysisResult | null>(null);
   const [currentSession, setCurrentSession] = useState<UserSession | null>(null);
@@ -21,6 +29,7 @@ export default function HomePage() {
   // Modals & form state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [createPreset, setCreatePreset] = useState<ProjectCreatePayload | null>(null);
 
   // Loading & error state
@@ -28,38 +37,41 @@ export default function HomePage() {
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load session from localStorage
+  // ============================================
+  // LOAD SESSION FROM LOCALSTORAGE
+  // ============================================
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('projectscope_user_session');
-      if (saved) {
-        setCurrentSession(JSON.parse(saved));
-      } else {
-        // Initialize with default demo session for immediate readiness
-        const defaultSession: UserSession = {
-          id: 'demo-architect',
-          name: 'Alex Rivera',
-          email: 'alex.rivera@enterprise.io',
-          role: 'Principal Solutions Architect',
-          avatar:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          organization: 'Acme Cloud Systems',
-        };
-        setCurrentSession(defaultSession);
-        localStorage.setItem('projectscope_user_session', JSON.stringify(defaultSession));
-      }
-    } catch {
-      // Ignore localStorage errors
+    const user = authStorage.getUser();
+    if (user) {
+      setCurrentSession({
+        id: String(user.id),
+        name: user.full_name,
+        email: user.email,
+        role: user.role,
+        avatar: '',
+        organization: authStorage.getOrganization()?.name || 'Org',
+      });
     }
   }, []);
 
-  // Fetch projects list
+  // ============================================
+  // FETCH PROJECTS
+  // ============================================
   const fetchProjectList = async () => {
+    // If not authenticated → show login modal
+    if (!api.isAuthenticated()) {
+      setIsLoginOpen(true);
+      return;
+    }
+
     try {
       const list = await api.listProjects();
       setProjects(list);
     } catch (err: any) {
       console.warn('Could not fetch project list:', err);
+      if (err.status === 401) {
+        setIsLoginOpen(true);
+      }
     }
   };
 
@@ -67,18 +79,45 @@ export default function HomePage() {
     fetchProjectList();
   }, []);
 
-  // Handle Project Creation & Optional Instant Analysis
+  // ============================================
+  // AUTH HANDLERS
+  // ============================================
+  const handleLoginSuccess = () => {
+    const user = authStorage.getUser();
+    if (user) {
+      setCurrentSession({
+        id: String(user.id),
+        name: user.full_name,
+        email: user.email,
+        role: user.role,
+        avatar: '',
+        organization: authStorage.getOrganization()?.name || 'Org',
+      });
+    }
+    fetchProjectList();
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    setCurrentSession(null);
+    setProjects([]);
+    setCurrentResult(null);
+    setIsLoginOpen(true);
+  };
+
+  // ============================================
+  // PROJECT CREATION
+  // ============================================
   const handleCreateProject = async (
     payload: ProjectCreatePayload,
     autoAnalyze: boolean
   ) => {
     setIsLoading(true);
     setError(null);
+
     try {
-      // 1. Create project record
       const project = await api.createProject(payload);
 
-      // 2. Run analysis if selected
       if (autoAnalyze) {
         const analysis = await api.analyzeProject(project.id);
         setCurrentResult(analysis);
@@ -97,7 +136,9 @@ export default function HomePage() {
     }
   };
 
-  // Handle selecting a project from Dashboard
+  // ============================================
+  // PROJECT SELECTION
+  // ============================================
   const handleSelectProject = async (projectId: number) => {
     setIsLoading(true);
     setError(null);
@@ -112,7 +153,6 @@ export default function HomePage() {
     }
   };
 
-  // Handle Re-analyzing currently open project
   const handleReanalyze = async () => {
     if (!currentResult) return;
     setIsReanalyzing(true);
@@ -126,7 +166,6 @@ export default function HomePage() {
     }
   };
 
-  // Handle Deleting project
   const handleDeleteProject = async (projectId: number) => {
     try {
       await api.deleteProject(projectId);
@@ -139,12 +178,17 @@ export default function HomePage() {
     }
   };
 
-  // Preset template click from Landing page
+  // ============================================
+  // PRESET TEMPLATE
+  // ============================================
   const handlePresetSelect = (preset: ProjectCreatePayload) => {
     setCreatePreset(preset);
     setIsCreateOpen(true);
   };
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50">
       {/* Top Navbar */}
@@ -153,15 +197,15 @@ export default function HomePage() {
         onNavigate={(view) => setActiveView(view)}
         activeProjectName={currentResult?.project?.name}
         currentSession={currentSession}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onLogout={() => setCurrentSession(null)}
+        onOpenAuth={() => setIsLoginOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main App Container */}
       <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto w-full">
         {/* Global Error Alert */}
         {error && (
-          <div className="mb-6 p-4 rounded-2xl border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="mb-6 p-4 rounded-2xl border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-center justify-between shadow-sm">
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>
@@ -179,8 +223,8 @@ export default function HomePage() {
 
         {/* Loading Overlay */}
         {isLoading && (
-          <div className="py-24 text-center space-y-4 animate-in fade-in duration-300">
-            <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto shadow-md shadow-sky-500/10">
+          <div className="py-24 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto shadow-md">
               <Sparkles className="w-7 h-7 animate-spin" />
             </div>
             <h3 className="text-lg font-bold text-slate-900">
@@ -192,25 +236,19 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* View 1: Landing Page */}
+        {/* Landing */}
         {!isLoading && activeView === 'landing' && (
           <LandingPage
             onOpenCreate={() => {
-              console.log('🔵 onOpenCreate called');
               setCreatePreset(null);
               setIsCreateOpen(true);
-              console.log('🔵 isCreateOpen set to true');
             }}
-            onSelectPreset={(preset) => {
-              console.log('🟢 onSelectPreset called:', preset);
-              setCreatePreset(preset);
-              setIsCreateOpen(true);
-            }}
+            onSelectPreset={handlePresetSelect}
             onGoToDashboard={() => setActiveView('dashboard')}
           />
         )}
 
-        {/* View 2: Dashboard */}
+        {/* Dashboard */}
         {!isLoading && activeView === 'dashboard' && (
           <DashboardView
             projects={projects}
@@ -224,7 +262,7 @@ export default function HomePage() {
           />
         )}
 
-        {/* View 3: Scoping Studio */}
+        {/* Scoping Studio */}
         {!isLoading && activeView === 'studio' && (
           <>
             {currentResult ? (
@@ -232,7 +270,9 @@ export default function HomePage() {
                 result={currentResult}
                 onReanalyze={handleReanalyze}
                 isReanalyzing={isReanalyzing}
-                onRefreshProject={() => handleSelectProject(currentResult.project_id)}
+                onRefreshProject={() =>
+                  handleSelectProject(currentResult.project_id)
+                }
               />
             ) : (
               <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4 max-w-lg mx-auto my-12">
@@ -243,7 +283,7 @@ export default function HomePage() {
                   No Project Currently Selected
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Select an existing project from your portfolio dashboard or create a new scope brief to launch the studio.
+                  Select an existing project from your portfolio dashboard or create a new scope brief.
                 </p>
                 <div className="flex items-center justify-center gap-2 pt-2">
                   <button
@@ -257,7 +297,7 @@ export default function HomePage() {
                       setCreatePreset(null);
                       setIsCreateOpen(true);
                     }}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-600/20"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-md"
                   >
                     Create New Project
                   </button>
@@ -283,12 +323,18 @@ export default function HomePage() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onLoginSuccess={(session) => setCurrentSession(session)}
+        onLoginSuccess={handleLoginSuccess}
         currentSession={currentSession}
-        onLogout={() => setCurrentSession(null)}
+        onLogout={handleLogout}
       />
 
-      {/* Persistent Footer */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onSuccess={handleLoginSuccess}
+      />
+
+      {/* Footer */}
       <Footer />
     </div>
   );

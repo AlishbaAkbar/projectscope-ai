@@ -216,10 +216,17 @@ async def update_project(
     current_user: User = Depends(get_current_user),
 ):
     """Update project"""
-    service = ProjectService(db)
-    project = service.update_project(project_id, project_data)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == current_user.organization_id,
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    update_data = project_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(project, field, value)
+    db.commit()
+    db.refresh(project)
     return project
 
 
@@ -308,6 +315,7 @@ async def get_tasks(project_id: int, db: Session = Depends(get_db)):
 # ============================================
 
 @router.post("/projects/{project_id}/analyze", response_model=ProjectAnalysisResult)
+@limiter.limit(f"{settings.RATE_LIMIT_AI_PER_MINUTE}/minute")
 async def analyze_project(request: Request, project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),):
     """Analyze with prompt sanitization"""
     
@@ -338,8 +346,12 @@ async def analyze_project(request: Request, project_id: int, db: Session = Depen
 
         # 2. ANALYZE PROJECT DESCRIPTION
         provider = get_provider()
-        print(f"🤖 Using provider: {type(provider).__name__}")
-        analysis = await RequirementAnalyzer(provider=provider).analyze(
+        print(f"🤖 Active provider: {type(provider).__name__}")
+        analysis = await RequirementAnalyzer(
+            provider=provider,
+            db=db,
+            project_id=project_id,
+        ).analyze(
             project_name=project.name,
             description=project.description or "",
             platform=project.platform or "Web",
@@ -768,6 +780,251 @@ async def analyze_project(request: Request, project_id: int, db: Session = Depen
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============================================
+# REPORT GENERATION ENDPOINTS (Phase 21)
+# ============================================
+
+from fastapi.responses import FileResponse
+from fastapi import Query
+
+
+def _get_project_analysis(project_id: int, db: Session) -> Dict[str, Any]:
+    """Helper: Get or generate analysis for a project"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get related data
+    features = db.query(Feature).filter(Feature.project_id == project_id).all()
+    tasks = db.query(Task).filter(Task.project_id == project_id).all()
+    requirements = db.query(Requirement).filter(Requirement.project_id == project_id).all()
+    
+    return {
+        "project": {
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "platform": project.platform or "Web",
+            "status": project.status or "draft",
+            "type": project.type,
+        },
+        "features": [
+            {
+                "id": f.id,
+                "canonical_name": f.canonical_name,
+                "description": f.description,
+                "priority": f.priority,
+                "complexity": f.complexity,
+            }
+            for f in features
+        ],
+        "tasks": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "role_id": t.role_id,
+                "estimated_hours": t.estimated_hours,
+                "priority": t.priority,
+                "is_global": t.is_global,
+            }
+            for t in tasks
+        ],
+        "total_estimated_hours": sum(t.estimated_hours for t in tasks),
+        "complexity_score": sum(f.complexity for f in features),
+        "risk_level": "MEDIUM",
+        "roles": list(set(f"Role {t.role_id}" for t in tasks)),
+        "summary": {},
+        "timeline": None,
+        "cost": None,
+        "risks": None,
+        "hybrid_estimate": None,
+        "explanation": None,
+    }
+
+
+@router.get("/projects/{project_id}/report/pdf")
+async def download_pdf_report(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download PDF report"""
+    try:
+        # Run full analysis first
+        analysis = await analyze_project(request, project_id, db, current_user)
+        
+        # Convert to dict
+        analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
+        
+        # Generate PDF
+        from app.reports.report_service import ReportService
+        service = ReportService()
+        filepath = service.generate_pdf(project_id, analysis_dict)
+        
+        project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.organization_id == current_user.organization_id,
+        ).first()
+        safe_name = (project.name or "project").replace(" ", "_")[:40]
+        
+        return FileResponse(
+            filepath,
+            media_type="application/pdf",
+            filename=f"{safe_name}_report.pdf",
+        )
+    except Exception as e:
+        print(f"PDF generation error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/projects/{project_id}/report/docx")
+async def download_docx_report(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download DOCX report"""
+    try:
+        analysis = await analyze_project(request, project_id, db, current_user)
+        analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
+        
+        from app.reports.report_service import ReportService
+        service = ReportService()
+        filepath = service.generate_docx(project_id, analysis_dict)
+        
+        project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.organization_id == current_user.organization_id,
+        ).first()
+        safe_name = (project.name or "project").replace(" ", "_")[:40]
+        
+        return FileResponse(
+            filepath,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=f"{safe_name}_report.docx",
+        )
+    except Exception as e:
+        print(f"DOCX generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/projects/{project_id}/report/markdown")
+async def download_markdown_report(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download Markdown report"""
+    try:
+        analysis = await analyze_project(request, project_id, db, current_user)
+        analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
+        
+        from app.reports.report_service import ReportService
+        service = ReportService()
+        filepath = service.generate_markdown(project_id, analysis_dict)
+        
+        project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.organization_id == current_user.organization_id,
+        ).first()
+        safe_name = (project.name or "project").replace(" ", "_")[:40]
+        
+        return FileResponse(
+            filepath,
+            media_type="text/markdown",
+            filename=f"{safe_name}_report.md",
+        )
+    except Exception as e:
+        print(f"Markdown generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/projects/{project_id}/report/csv")
+async def download_csv_report(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download CSV (Jira-compatible)"""
+    try:
+        analysis = await analyze_project(request, project_id, db, current_user)
+        analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
+        
+        from app.reports.report_service import ReportService
+        service = ReportService()
+        filepath = service.generate_csv(project_id, analysis_dict)
+        
+        project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.organization_id == current_user.organization_id,
+        ).first()
+        safe_name = (project.name or "project").replace(" ", "_")[:40]
+        
+        return FileResponse(
+            filepath,
+            media_type="text/csv",
+            filename=f"{safe_name}_tasks.csv",
+        )
+    except Exception as e:
+        print(f"CSV generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/projects/{project_id}/report/all")
+async def get_all_reports_info(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get metadata for all available report formats"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == current_user.organization_id,
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    return {
+        "project_id": project_id,
+        "project_name": project.name,
+        "available_formats": [
+            {
+                "format": "pdf",
+                "name": "PDF Report",
+                "description": "Professional executive dossier (print-ready)",
+                "url": f"/api/v1/projects/{project_id}/report/pdf",
+                "mime": "application/pdf",
+            },
+            {
+                "format": "docx",
+                "name": "Word Document",
+                "description": "Editable Word document",
+                "url": f"/api/v1/projects/{project_id}/report/docx",
+                "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            },
+            {
+                "format": "markdown",
+                "name": "Markdown",
+                "description": "Plain text markdown (GitHub/Notion compatible)",
+                "url": f"/api/v1/projects/{project_id}/report/markdown",
+                "mime": "text/markdown",
+            },
+            {
+                "format": "csv",
+                "name": "Jira CSV",
+                "description": "Jira-compatible task import",
+                "url": f"/api/v1/projects/{project_id}/report/csv",
+                "mime": "text/csv",
+            },
+        ],
+    }
 
 # ============================================
 # CHAT ENDPOINT

@@ -2,9 +2,11 @@
 Phase 22: Authentication Routes
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.database.session import get_db
 from app.services.auth_service import AuthService
 from app.api.dependencies import get_current_user
@@ -45,7 +47,9 @@ async def register(
 # ============================================
 
 @router.post("/login", response_model=AuthResponse)
+@limiter.limit(f"{settings.RATE_LIMIT_AUTH_PER_MINUTE}/minute")
 async def login(
+    request: Request,
     data: UserLoginRequest,
     db: Session = Depends(get_db),
 ):
