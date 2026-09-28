@@ -42,6 +42,37 @@ class RequirementAnalyzer:
 
         return text
 
+    async def _fallback_to_mock(
+        self,
+        current_prompt: str,
+        project_name: str,
+        failure: Exception,
+    ) -> RawAIAnalysisResponse:
+        from app.ai.providers.mock_provider import MockLLMProvider
+
+        logger.warning(
+            "Primary provider %s failed; falling back to mock provider: %s",
+            type(self.provider).__name__,
+            failure,
+        )
+        raw_response = await MockLLMProvider().analyze(current_prompt, SYSTEM_PROMPT)
+        try:
+            parsed_dict = json.loads(self._extract_json_string(raw_response))
+            validated_data = RawAIAnalysisResponse.model_validate(parsed_dict)
+        except (json.JSONDecodeError, ValidationError) as fallback_error:
+            raise LLMValidationException(
+                message=f"Mock fallback returned invalid analysis: {fallback_error}",
+                raw_output=raw_response,
+            ) from fallback_error
+
+        logger.info(
+            "Mock fallback analyzed project '%s': %s requirements, %s features.",
+            project_name,
+            len(validated_data.requirements),
+            len(validated_data.features),
+        )
+        return validated_data
+
     async def analyze(
         self,
         project_name: str,
@@ -91,6 +122,10 @@ class RequirementAnalyzer:
                 last_error = f"Malformed JSON: {str(json_err)}"
                 logger.warning(f"Attempt {attempt + 1} produced malformed JSON: {json_err}")
                 if attempt == max_retries:
+                    from app.ai.providers.mock_provider import MockLLMProvider
+
+                    if not isinstance(self.provider, MockLLMProvider):
+                        return await self._fallback_to_mock(current_prompt, project_name, json_err)
                     raise LLMValidationException(
                         message=f"Failed to parse LLM response as valid JSON: {str(json_err)}",
                         raw_output=last_raw_response
@@ -100,15 +135,22 @@ class RequirementAnalyzer:
                 last_error = f"Schema validation error: {str(val_err)}"
                 logger.warning(f"Attempt {attempt + 1} failed schema validation: {val_err}")
                 if attempt == max_retries:
+                    from app.ai.providers.mock_provider import MockLLMProvider
+
+                    if not isinstance(self.provider, MockLLMProvider):
+                        return await self._fallback_to_mock(current_prompt, project_name, val_err)
                     raise LLMValidationException(
                         message=f"LLM response violated required schema: {str(val_err)}",
                         raw_output=last_raw_response,
                         details=val_err.errors()
                     )
 
-            except LLMProviderException:
-                # Direct provider errors shouldn't be blindly retried if they are API auth or config issues
-                raise
+            except LLMProviderException as provider_error:
+                from app.ai.providers.mock_provider import MockLLMProvider
+
+                if isinstance(self.provider, MockLLMProvider):
+                    raise
+                return await self._fallback_to_mock(current_prompt, project_name, provider_error)
 
             except Exception as e:
                 last_error = str(e)

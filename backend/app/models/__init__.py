@@ -4,11 +4,12 @@ from app.models.project import (
     Project,
     Requirement,
     MissingInformation,
-    Assumption
+    Assumption,
 )
 from app.models.feature import Feature
 from app.models.task import Task
 from app.models.role import Role
+from app.models.user import User, RefreshToken  # ✅ NEW
 
 __all__ = [
     "Base",
@@ -20,4 +21,6 @@ __all__ = [
     "Role",
     "MissingInformation",
     "Assumption",
+    "User",           # ✅ NEW
+    "RefreshToken",   # ✅ NEW
 ]

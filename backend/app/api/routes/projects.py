@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -10,10 +10,19 @@ from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.schemas.features import FeatureResponse
 from app.schemas.tasks import TaskResponse
 from app.schemas.analysis import ProjectAnalysisResult
+from app.ai.analyzer import RequirementAnalyzer
+from app.ai.providers.factory import get_provider
 from app.models.project import Project, Requirement
 from app.models.feature import Feature
 from app.models.task import Task
 from app.models.role import Role
+from app.services.feature_service import FeatureService
+from app.core.rate_limit import limiter
+from app.core.audit import AuditService
+from app.core.sanitize import sanitize_text, sanitize_prompt, detect_prompt_injection
+from app.core.config import settings
+from app.api.dependencies import get_current_user, get_optional_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -55,21 +64,47 @@ class FeedbackResponse(BaseModel):
 # ============================================
 
 @router.get("/projects", response_model=List[ProjectResponse])
-async def get_projects(db: Session = Depends(get_db)):
-    """Get all projects"""
-    service = ProjectService(db)
-    return service.get_projects()
+async def get_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get projects for current user's organization only"""
+    return db.query(Project).filter(
+        Project.organization_id == current_user.organization_id
+    ).all()
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(f"{settings.RATE_LIMIT_PER_MINUTE}/minute")
 async def create_project(
+    request: Request,
     project_data: ProjectCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    """Create a new project"""
+    """Create project with audit log & sanitization"""
     service = ProjectService(db)
-    return service.create_project(project_data)
-
+    audit = AuditService(db)
+    
+    # Sanitize inputs
+    project_data.name = sanitize_text(project_data.name)
+    if project_data.description:
+        project_data.description = sanitize_text(project_data.description)
+    
+    # Tenant isolation: force organization_id from current user
+    project_data.organization_id = current_user.organization_id
+    
+    project = service.create_project(project_data)
+    
+    audit.log_project_created(
+        user_id=current_user.id,
+        org_id=current_user.organization_id,
+        project_id=project.id,
+        name=project.name,
+        request=request,
+    )
+    
+    return project
 # ============================================
 # ROLE ROUTES (before /{project_id})
 # ============================================
@@ -156,11 +191,19 @@ async def get_rag_stats():
 # ============================================
 
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: int, db: Session = Depends(get_db)):
-    """Get project by ID"""
-    service = ProjectService(db)
-    project = service.get_project(project_id)
+async def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get project with tenant isolation"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == current_user.organization_id,
+    ).first()
+    
     if not project:
+        # Return 404 (not 403) to prevent ID enumeration
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
@@ -169,7 +212,8 @@ async def get_project(project_id: int, db: Session = Depends(get_db)):
 async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Update project"""
     service = ProjectService(db)
@@ -180,12 +224,32 @@ async def update_project(
 
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_project(project_id: int, db: Session = Depends(get_db)):
-    """Delete project"""
-    service = ProjectService(db)
-    deleted = service.delete_project(project_id)
-    if not deleted:
+async def delete_project(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete project with audit log"""
+    audit = AuditService(db)
+    
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == current_user.organization_id,
+    ).first()
+    
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    db.delete(project)
+    db.commit()
+    
+    audit.log_project_deleted(
+        user_id=current_user.id,
+        org_id=current_user.organization_id,
+        project_id=project_id,
+        request=request,
+    )
     return None
 
 
@@ -198,7 +262,7 @@ async def add_requirement(
     project_id: int,
     text: str,
     category: str = "general",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """Add requirement to a project"""
     service = ProjectService(db)
@@ -244,7 +308,27 @@ async def get_tasks(project_id: int, db: Session = Depends(get_db)):
 # ============================================
 
 @router.post("/projects/{project_id}/analyze", response_model=ProjectAnalysisResult)
-async def analyze_project(project_id: int, db: Session = Depends(get_db)):
+async def analyze_project(request: Request, project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),):
+    """Analyze with prompt sanitization"""
+    
+    # Verify project belongs to user's org (tenant isolation)
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == current_user.organization_id,
+    ).first()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Sanitize project description for AI
+    if project.description:
+        if detect_prompt_injection(project.description):
+            raise HTTPException(
+                status_code=400,
+                detail="Input contains suspicious patterns",
+            )
+        project.description = sanitize_prompt(project.description, settings.MAX_PROMPT_LENGTH)
+
     """Full analysis pipeline (Phases 6-19)"""
     try:
         # 1. CHECK PROJECT EXISTS
@@ -252,84 +336,104 @@ async def analyze_project(project_id: int, db: Session = Depends(get_db)):
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        # 2. GET OR CREATE REQUIREMENTS
-        requirements = db.query(Requirement).filter(Requirement.project_id == project_id).all()
-        if not requirements:
-            sample_reqs = [
-                {"text": "Users need to login and create accounts", "category": "authentication"},
-                {"text": "Product catalog with search", "category": "catalog"},
-                {"text": "Shopping cart and checkout", "category": "cart"},
-                {"text": "Payment processing", "category": "payment"},
-            ]
-            for req_data in sample_reqs:
-                req = Requirement(
-                    project_id=project_id,
-                    text=req_data["text"],
-                    category=req_data["category"],
-                    source="auto_generated",
-                )
-                db.add(req)
-            db.commit()
-            requirements = db.query(Requirement).filter(Requirement.project_id == project_id).all()
+        # 2. ANALYZE PROJECT DESCRIPTION
+        provider = get_provider()
+        print(f"🤖 Using provider: {type(provider).__name__}")
+        analysis = await RequirementAnalyzer(provider=provider).analyze(
+            project_name=project.name,
+            description=project.description or "",
+            platform=project.platform or "Web",
+        )
 
-        # 3. FEATURES (prevent duplicates)
+        requirement_rows = [
+            Requirement(
+                project_id=project_id,
+                text=item.text.strip(),
+                category=item.category,
+                confidence=item.confidence,
+                source="ai_generated",
+            )
+            for item in analysis.requirements
+        ]
+
+        # 3. REPLACE PREVIOUSLY GENERATED REQUIREMENTS
+        legacy_requirement_texts = {
+            "Users need to login and create accounts",
+            "Product catalog with search",
+            "Shopping cart and checkout",
+            "Payment processing",
+        }
+        generated_requirements = db.query(Requirement).filter(
+            Requirement.project_id == project_id,
+            Requirement.source.in_(["auto_generated", "ai_generated"]),
+        ).all()
+        replacing_legacy_defaults = (
+            len(generated_requirements) == len(legacy_requirement_texts)
+            and {item.text for item in generated_requirements} == legacy_requirement_texts
+        )
+        for requirement in generated_requirements:
+            db.delete(requirement)
+        db.flush()
+        db.add_all(requirement_rows)
+        db.commit()
+
+        # 4. GET REQUIREMENTS
+        requirements = db.query(Requirement).filter(Requirement.project_id == project_id).all()
+
+        # 5. FEATURES (prevent duplicates)
         existing_features = db.query(Feature).filter(Feature.project_id == project_id).all()
+        legacy_feature_names = {"AUTHENTICATION", "PRODUCT_CATALOG", "CART", "PAYMENT"}
+        if (
+            replacing_legacy_defaults
+            and {feature.canonical_name for feature in existing_features} == legacy_feature_names
+        ):
+            db.query(Task).filter(
+                Task.project_id == project_id,
+                Task.feature_id.in_([feature.id for feature in existing_features]),
+            ).delete(synchronize_session=False)
+            for feature in existing_features:
+                db.delete(feature)
+            db.flush()
+            existing_features = []
+
         if existing_features:
             features = existing_features
             feature_names = [f.canonical_name for f in features]
         else:
             features = []
             feature_names = []
-            for req in requirements:
-                text = req.text.lower()
+            for feature_data in analysis.features:
+                raw_name = feature_data.canonical_name or feature_data.name
+                if not raw_name:
+                    raise HTTPException(status_code=502, detail="AI returned a feature without a name")
+                canonical_name = FeatureService.normalize_name(raw_name)
 
-                if "login" in text or "auth" in text or "register" in text:
-                    if "AUTHENTICATION" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="AUTHENTICATION",
-                                    description="User authentication and account management",
-                                    priority="HIGH", complexity=3, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("AUTHENTICATION")
+                if canonical_name in feature_names:
+                    continue
 
-                if "product" in text or "catalog" in text or "inventory" in text:
-                    if "PRODUCT_CATALOG" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="PRODUCT_CATALOG",
-                                    description="Product catalog and inventory management",
-                                    priority="HIGH", complexity=4, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("PRODUCT_CATALOG")
+                raw_complexity = feature_data.complexity
+                if isinstance(raw_complexity, str):
+                    complexity = {"low": 2, "medium": 3, "high": 5}.get(raw_complexity.lower(), 3)
+                else:
+                    complexity = max(1, min(5, int(raw_complexity)))
 
-                if "cart" in text or "basket" in text or "shopping" in text:
-                    if "CART" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="CART",
-                                    description="Shopping cart functionality",
-                                    priority="HIGH", complexity=3, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("CART")
-
-                if "payment" in text or "pay" in text or "checkout" in text:
-                    if "PAYMENT" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="PAYMENT",
-                                    description="Payment processing",
-                                    priority="HIGH", complexity=5, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("PAYMENT")
-
-                if "order" in text or "tracking" in text:
-                    if "ORDER_MANAGEMENT" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="ORDER_MANAGEMENT",
-                                    description="Order management and tracking",
-                                    priority="HIGH", complexity=3, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("ORDER_MANAGEMENT")
-
-                if "admin" in text or "dashboard" in text:
-                    if "ADMIN_PANEL" not in feature_names:
-                        f = Feature(project_id=project_id, canonical_name="ADMIN_PANEL",
-                                    description="Admin dashboard and management",
-                                    priority="HIGH", complexity=5, confidence=0.9)
-                        db.add(f); features.append(f); feature_names.append("ADMIN_PANEL")
+                feature = Feature(
+                    project_id=project_id,
+                    canonical_name=canonical_name,
+                    description=(feature_data.description or raw_name)[:500],
+                    priority=feature_data.priority.upper(),
+                    complexity=complexity,
+                    confidence=feature_data.confidence,
+                )
+                db.add(feature)
+                features.append(feature)
+                feature_names.append(canonical_name)
 
             db.commit()
             features = db.query(Feature).filter(Feature.project_id == project_id).all()
             feature_names = [f.canonical_name for f in features]
 
-        # 4. TASKS (prevent duplicates)
+        # 6. TASKS (prevent duplicates)
         existing_tasks = db.query(Task).filter(Task.project_id == project_id).all()
         if existing_tasks:
             tasks = existing_tasks
@@ -442,6 +546,19 @@ async def analyze_project(project_id: int, db: Session = Depends(get_db)):
                                       title="Test admin panel",
                                       description="Test permissions and CRUD operations",
                                       estimated_hours=8, priority="HIGH"))
+                else:
+                    tasks.append(Task(project_id=project_id, feature_id=feature.id, role_id=1,
+                                      title=f"Design {feature.canonical_name.lower().replace('_', ' ')}",
+                                      description=f"Define user flows and interface for {feature.canonical_name.lower().replace('_', ' ')}",
+                                      estimated_hours=8, priority=feature.priority))
+                    tasks.append(Task(project_id=project_id, feature_id=feature.id, role_id=3,
+                                      title=f"Implement {feature.canonical_name.lower().replace('_', ' ')}",
+                                      description=feature.description or "Implement feature requirements",
+                                      estimated_hours=16, priority=feature.priority))
+                    tasks.append(Task(project_id=project_id, feature_id=feature.id, role_id=6,
+                                      title=f"Test {feature.canonical_name.lower().replace('_', ' ')}",
+                                      description="Verify feature requirements and edge cases",
+                                      estimated_hours=6, priority=feature.priority))
 
             # Global tasks
             global_tasks = [

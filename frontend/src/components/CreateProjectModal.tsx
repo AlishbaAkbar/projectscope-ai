@@ -61,11 +61,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [name, setName] = useState(initialData?.name || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [platform, setPlatform] = useState(initialData?.platform || 'web');
-  const [projectType, setProjectType] = useState(initialData?.type || 'e-commerce');
-  const [targetUsers, setTargetUsers] = useState('Customer, Admin');
-  const [budget, setBudget] = useState('25000');
-  const [timelineWeeks, setTimelineWeeks] = useState('8');
-  const [constraints, setConstraints] = useState('Cloud-native, PostgreSQL database');
+  const [projectType, setProjectType] = useState(initialData?.type || '');
+  const [targetUsers, setTargetUsers] = useState('');
+  const [budget, setBudget] = useState('');
+  const [timelineWeeks, setTimelineWeeks] = useState('');
+  const [constraints, setConstraints] = useState('');
   const [autoAnalyze, setAutoAnalyze] = useState(true);
 
   if (!isOpen) return null;
@@ -82,8 +82,18 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     e.preventDefault();
     if (!name.trim() || !description.trim()) return;
 
-    // Combine user hints into description to enrich AI prompt engine
-    const richDescription = `${description.trim()}\n\n[Project Metadata]\nPlatform: ${platform}\nCategory: ${projectType}\nTarget Personas: ${targetUsers}\nEstimated Budget Target: $${budget}\nTarget Delivery Window: ${timelineWeeks} weeks\nTechnical Preferences: ${constraints}`;
+    let richDescription = description.trim();
+    const metadataParts = [];
+    if (platform) metadataParts.push(`Platform: ${platform}`);
+    if (projectType) metadataParts.push(`Category: ${projectType}`);
+    if (targetUsers) metadataParts.push(`Target Personas: ${targetUsers}`);
+    if (budget) metadataParts.push(`Budget: $${budget}`);
+    if (timelineWeeks) metadataParts.push(`Timeline: ${timelineWeeks} weeks`);
+    if (constraints) metadataParts.push(`Constraints: ${constraints}`);
+
+    if (metadataParts.length > 0) {
+      richDescription += `\n\n[Project Metadata]\n${metadataParts.join('\n')}`;
+    }
 
     await onSubmit(
       {
@@ -186,6 +196,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 onChange={(e) => setProjectType(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
+                <option value="">Select a category (optional)</option>
                 <option value="e-commerce">E-Commerce & Retail</option>
                 <option value="healthcare">Healthcare & Life Sciences</option>
                 <option value="fintech">FinTech & Banking</option>

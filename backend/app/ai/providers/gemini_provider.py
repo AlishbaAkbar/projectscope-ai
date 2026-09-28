@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 import httpx
@@ -14,7 +15,7 @@ class GeminiProvider(LLMProvider):
         if not api_key:
             raise LLMProviderException("Gemini API key is required but was not provided.", provider="gemini")
         self.api_key = api_key
-        self.model = model or "gemini-1.5-flash"
+        self.model = model or "gemini-2.5-flash"
         self.timeout = timeout
         self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
 
@@ -22,6 +23,19 @@ class GeminiProvider(LLMProvider):
         return await self.generate(prompt, system_prompt)
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        for attempt in range(3):
+            try:
+                return await self._call_gemini(prompt, system_prompt)
+            except LLMProviderException as exc:
+                if "503" not in str(exc) or attempt == 2:
+                    raise
+                delay = 2 ** attempt
+                logger.warning("Gemini returned 503; retrying in %s seconds (attempt %s/3).", delay, attempt + 2)
+                await asyncio.sleep(delay)
+
+        raise LLMProviderException("Gemini request failed after retries.", provider="gemini")
+
+    async def _call_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         url = f"{self.base_url}?key={self.api_key}"
 
         contents = [{"parts": [{"text": prompt}]}]

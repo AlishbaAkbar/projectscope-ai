@@ -10,11 +10,13 @@ class Organization(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    plan = Column(String(50), default="free")
+    plan = Column(String(50), default="free")  # free, pro, enterprise
+    slug = Column(String(100), unique=True, nullable=True)  # for URLs
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # ✅ Relationship to projects
+    # Relationships
     projects = relationship("Project", back_populates="organization", cascade="all, delete-orphan")
+    users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
 
 
 class Project(Base):
