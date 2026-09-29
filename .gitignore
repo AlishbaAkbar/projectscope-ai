@@ -69,4 +69,7 @@ backend/ml/models/*.pkl
 # Temporary files
 *.tmp
 *.temp
-*.bak
+*.bak 
+# Local test artifacts 
+metrics.txt 
+*.txt 
