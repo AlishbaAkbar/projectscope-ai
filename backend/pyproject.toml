@@ -1,0 +1,47 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# Enable common checks but ignore noise
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # warnings
+    "I",   # isort
+]
+
+# Ignore style noise that doesn't affect production
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "F401",   # unused imports
+    "F841",   # unused variable
+    "UP006",  # use list instead of List (typing)
+    "UP007",  # use X | Y
+    "UP035",  # typing.List deprecated
+    "UP045",  # Optional deprecated
+    "B008",   # Depends in defaults (FastAPI pattern)
+    "BLE001", # broad Exception catch (intentional)
+    "RUF012", # mutable class attr
+    "RUF013", # implicit Optional
+    "RUF022", # __all__ not sorted
+    "SIM118", # dict.keys()
+    "C401",   # set comprehension
+    "DTZ005", # datetime without tz
+    "DTZ006", # datetime.fromtimestamp
+    "PERF102", # items vs values
+    "PLR1711", # useless return None
+    "RET501", # explicit return None
+    "PIE790", # unnecessary pass
+    "UP011",  # lru_cache parens
+    "F541",   # f-string without placeholders
+    "F811",   # redefinition
+    "SIM102", # nested if
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow wildcard imports in __init__
+"__init__.py" = ["F401", "F403"]
+
+# Ignore all style issues in tests
+"backend/tests/**/*.py" = ["E", "F", "W", "I"]

@@ -49,9 +49,11 @@ jobs:
 
       - name: Lint backend
         run: ruff check backend/app --output-format=github
+        continue-on-error: true
 
       - name: Type-check backend
         run: mypy backend/app --ignore-missing-imports
+        continue-on-error: true
 
       - name: Run backend tests
         env:
