@@ -5,21 +5,21 @@ Phase 22: Authentication Routes
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.database.session import get_db
-from app.services.auth_service import AuthService
-from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.schemas.auth import (
-    UserRegisterRequest,
-    UserLoginRequest,
-    RefreshTokenRequest,
-    ChangePasswordRequest,
     AuthResponse,
+    ChangePasswordRequest,
+    RefreshTokenRequest,
     TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
     UserResponse,
 )
-from app.models.user import User
+from app.services.auth_service import AuthService
 
 router = APIRouter()
 
@@ -151,13 +151,13 @@ async def delete_account(
     All projects become inaccessible (kept for audit).
     """
     from datetime import datetime, timezone
-    
+
     current_user.deleted_at = datetime.now(timezone.utc)
     current_user.is_active = False
-    
+
     # Revoke all tokens
     service = AuthService(db)
     service.logout_all(current_user.id)
-    
+
     db.commit()
-    return None 
+    return None

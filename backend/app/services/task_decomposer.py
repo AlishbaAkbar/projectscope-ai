@@ -1,11 +1,11 @@
 import json
-from typing import List, Dict, Optional, Set
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
 from app.models.feature import Feature
-from app.models.task import Task
 from app.models.role import Role
+from app.models.task import Task
 from app.schemas.tasks import TaskCreate
 from app.services.role_service import RoleService
 
@@ -15,13 +15,13 @@ class TaskDecomposer:
     Phase 7: Task Decomposition Engine
     Now with role name support
     """
-    
+
     def __init__(self, db=None):
         self.db = db
         self.library_path = Path(__file__).parent.parent / "data" / "task_library.json"
         self.task_library = self._load_library()
         self.role_service = RoleService(db) if db else None
-    
+
     def _load_library(self) -> Dict:
         """Load task library from JSON file"""
         if self.library_path.exists():
@@ -106,7 +106,7 @@ class TaskDecomposer:
                     ]
                 }
             }
-    
+
     def _get_role_id(self, role_name: str) -> int:
         """Get role ID from role name"""
         role_mapping = {
@@ -122,7 +122,7 @@ class TaskDecomposer:
             "CEO/Business Owner": 10,
         }
         return role_mapping.get(role_name, 0)
-    
+
     def _get_role_name(self, role_id: int) -> str:
         """Get role name from role ID"""
         role_mapping = {
@@ -138,39 +138,39 @@ class TaskDecomposer:
             10: "CEO/Business Owner",
         }
         return role_mapping.get(role_id, f"Role {role_id}")
-    
+
     def decompose_features(self, features: List[Feature]) -> List[Task]:
         """Decompose features into tasks with role names"""
         all_tasks = []
-        
+
         for feature in features:
             feature_tasks = self._decompose_feature(feature)
             all_tasks.extend(feature_tasks)
-        
+
         if len(features) > 3:
             global_tasks = self._add_global_tasks(features)
             all_tasks.extend(global_tasks)
-        
+
         all_tasks = self._calculate_dependencies(all_tasks)
         all_tasks = self._estimate_durations(all_tasks)
-        
+
         return all_tasks
-    
+
     def _decompose_feature(self, feature: Feature) -> List[Task]:
         """Decompose a single feature into tasks"""
         feature_id = feature.canonical_name
         tasks = []
-        
+
         if feature_id in self.task_library["tasks"]:
             baseline_tasks = self.task_library["tasks"][feature_id]["baseline_tasks"]
-            
+
             for task_data in baseline_tasks:
                 complexity_factor = 1.0 + (feature.complexity - 3) * 0.2
                 adjusted_hours = round(task_data["base_hours"] * complexity_factor)
-                
+
                 role_id = self._get_role_id(task_data["role"])
                 role_name = self._get_role_name(role_id)
-                
+
                 task = Task(
                     feature_id=feature.id,
                     role_id=role_id,
@@ -183,13 +183,13 @@ class TaskDecomposer:
                     project_id=0
                 )
                 tasks.append(task)
-        
+
         return tasks
-    
+
     def _add_global_tasks(self, features: List[Feature]) -> List[Task]:
         """Add global tasks based on project complexity"""
         tasks = []
-        
+
         for task_data in self.task_library.get("global_tasks", {}).get("devops", []):
             task = Task(
                 feature_id=None,
@@ -204,7 +204,7 @@ class TaskDecomposer:
                 project_id=0
             )
             tasks.append(task)
-        
+
         for task_data in self.task_library.get("global_tasks", {}).get("testing", []):
             task = Task(
                 feature_id=None,
@@ -219,7 +219,7 @@ class TaskDecomposer:
                 project_id=0
             )
             tasks.append(task)
-        
+
         for task_data in self.task_library.get("global_tasks", {}).get("project_management", []):
             task = Task(
                 feature_id=None,
@@ -234,9 +234,9 @@ class TaskDecomposer:
                 project_id=0
             )
             tasks.append(task)
-        
+
         return tasks
-    
+
     def _calculate_task_priority(self, feature_priority: str) -> str:
         """Calculate task priority from feature priority"""
         if feature_priority == "HIGH":
@@ -245,20 +245,20 @@ class TaskDecomposer:
             return "MEDIUM"
         else:
             return "LOW"
-    
+
     def _calculate_dependencies(self, tasks: List[Task]) -> List[Task]:
         """Calculate task dependencies based on roles and order"""
         role_tasks = defaultdict(list)
         for task in tasks:
             role_tasks[task.role_id].append(task)
-        
+
         for role_id, role_task_list in role_tasks.items():
             for idx, task in enumerate(role_task_list):
                 if idx > 0:
                     task.dependencies = [role_task_list[idx - 1].id]
-        
+
         return tasks
-    
+
     def _estimate_durations(self, tasks: List[Task]) -> List[Task]:
         """Estimate min, expected, and max hours for each task"""
         for task in tasks:
@@ -266,15 +266,15 @@ class TaskDecomposer:
             task.max_hours = round(task.estimated_hours * 1.2)
             task.confidence = 0.8
         return tasks
-    
+
     def get_task_summary(self, tasks: List[Task]) -> Dict:
         """Get summary of tasks by role with role names"""
         summary = {}
-        
+
         for task in tasks:
             role_id = task.role_id
             role_name = self._get_role_name(role_id)
-            
+
             if role_name not in summary:
                 summary[role_name] = {
                     "role_id": role_id,
@@ -282,7 +282,7 @@ class TaskDecomposer:
                     "num_tasks": 0,
                     "tasks": []
                 }
-            
+
             summary[role_name]["total_hours"] += task.estimated_hours
             summary[role_name]["num_tasks"] += 1
             summary[role_name]["tasks"].append({
@@ -291,5 +291,5 @@ class TaskDecomposer:
                 "hours": task.estimated_hours,
                 "priority": task.priority
             })
-        
+
         return summary

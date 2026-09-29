@@ -7,10 +7,10 @@ from typing import Dict, List, Optional
 
 class TaskLibrary:
     """Central repository for task baselines"""
-    
+
     def __init__(self):
         self.tasks = self._load_tasks()
-    
+
     def _load_tasks(self) -> Dict:
         """Load all tasks with baseline hours"""
         return {
@@ -45,7 +45,7 @@ class TaskLibrary:
                 "base_hours": 6,
                 "description": "Test login, registration, password reset, session expiry"
             },
-            
+
             # PRODUCT CATALOG
             "product_design": {
                 "title": "Design product catalog",
@@ -77,7 +77,7 @@ class TaskLibrary:
                 "base_hours": 8,
                 "description": "Test CRUD operations, search, filtering"
             },
-            
+
             # CART
             "cart_design": {
                 "title": "Design shopping cart",
@@ -103,7 +103,7 @@ class TaskLibrary:
                 "base_hours": 6,
                 "description": "Test add, remove, update, checkout"
             },
-            
+
             # PAYMENT
             "payment_design": {
                 "title": "Design payment flows",
@@ -141,7 +141,7 @@ class TaskLibrary:
                 "base_hours": 10,
                 "description": "Test success, failure, refund scenarios"
             },
-            
+
             # ORDER MANAGEMENT
             "order_design": {
                 "title": "Design order management",
@@ -167,7 +167,7 @@ class TaskLibrary:
                 "base_hours": 6,
                 "description": "Test order creation, tracking, status updates"
             },
-            
+
             # ADMIN PANEL
             "admin_design": {
                 "title": "Design admin dashboard",
@@ -194,18 +194,18 @@ class TaskLibrary:
                 "description": "Test admin permissions, CRUD operations"
             },
         }
-    
+
     def get_task(self, task_id: str) -> Optional[Dict]:
         """Get a single task by ID"""
         return self.tasks.get(task_id)
-    
+
     def get_tasks_by_role(self, role_name: str) -> List[Dict]:
         """Get all tasks for a specific role"""
         return [
             task for task in self.tasks.values()
             if task.get("role") == role_name
         ]
-    
+
     def get_tasks_by_feature(self, feature_name: str) -> List[Dict]:
         """Get all tasks for a specific feature"""
         prefix = feature_name.lower().replace("_", "")
@@ -213,7 +213,7 @@ class TaskLibrary:
             task for task_id, task in self.tasks.items()
             if task_id.startswith(prefix)
         ]
-    
+
     def get_all_tasks(self) -> Dict:
         """Get all tasks"""
         return self.tasks

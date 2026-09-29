@@ -4,9 +4,9 @@ Prevents XSS, SQL injection, and prompt injection
 """
 
 import re
-import bleach
 from typing import Optional
 
+import bleach
 
 # ============================================
 # HTML SANITIZATION
@@ -16,7 +16,7 @@ def sanitize_html(text: str) -> str:
     """Remove dangerous HTML/script tags"""
     if not text:
         return ""
-    
+
     allowed_tags = ["p", "br", "strong", "em", "u", "ul", "ol", "li"]
     return bleach.clean(
         text,
@@ -77,20 +77,20 @@ def sanitize_prompt(text: str, max_length: int = 10000) -> str:
     """
     if not text:
         return ""
-    
+
     # Remove control chars (except newline/tab)
     text = "".join(c for c in text if c >= " " or c in "\n\t")
-    
+
     # Cap length
     if len(text) > max_length:
         text = text[:max_length]
-    
+
     # Neutralize injection patterns by escaping them
     text = INJECTION_REGEX.sub(
         lambda m: "[REDACTED-INSTRUCTION]",
         text,
     )
-    
+
     return text.strip()
 
 

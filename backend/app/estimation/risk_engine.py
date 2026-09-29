@@ -3,9 +3,9 @@ Phase 12: Risk Engine
 Identifies, analyzes, and mitigates project risks
 """
 
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 
 class RiskLevel(Enum):
@@ -63,11 +63,11 @@ class RiskResult:
 
 class RiskEngine:
     """Comprehensive risk assessment engine"""
-    
+
     def __init__(self):
         pass
-    
-    def assess_project(self, 
+
+    def assess_project(self,
                        features: List[str],
                        complexities: List[int],
                        integrations: List[str],
@@ -78,7 +78,7 @@ class RiskEngine:
         """Assess all risks for a project"""
         risks = []
         total_score = 0
-        
+
         # 1. Technical Risk
         if complexities and sum(complexities) / len(complexities) > 5:
             risk = Risk(
@@ -96,7 +96,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 50.0
-        
+
         # 2. Schedule Risk
         if len(features) > 10:
             risk = Risk(
@@ -114,7 +114,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 55.0
-        
+
         # 3. Resource Risk
         if len(features) > 15:
             risk = Risk(
@@ -132,7 +132,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 45.0
-        
+
         # 4. Budget Risk
         if len(features) > 12:
             risk = Risk(
@@ -150,7 +150,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 40.0
-        
+
         # 5. Security Risk
         has_payment = any("PAYMENT" in f for f in features)
         if has_payment or security_level in ["high", "very_high"]:
@@ -169,7 +169,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 65.0
-        
+
         # 6. Integration Risk
         if integrations and len(integrations) > 2:
             risk = Risk(
@@ -187,7 +187,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 50.0
-        
+
         # 7. Compliance Risk
         has_user_data = any("AUTH" in f or "USER" in f for f in features)
         if has_user_data or has_payment:
@@ -206,7 +206,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 60.0
-        
+
         # 8. Scalability Risk
         has_realtime = any("REAL_TIME" in f for f in features)
         if has_realtime or platform in ["mobile", "both"]:
@@ -225,7 +225,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 35.0
-        
+
         # 9. Data Risk
         if len(features) > 8:
             risk = Risk(
@@ -243,7 +243,7 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 30.0
-        
+
         # 10. Dependency Risk
         if len(features) > 6:
             risk = Risk(
@@ -261,10 +261,10 @@ class RiskEngine:
             )
             risks.append(risk)
             total_score += 25.0
-        
+
         # Calculate risk level
         avg_score = total_score / len(risks) if risks else 0
-        
+
         if avg_score >= 70:
             risk_level = "CRITICAL"
         elif avg_score >= 50:
@@ -273,16 +273,16 @@ class RiskEngine:
             risk_level = "MEDIUM"
         else:
             risk_level = "LOW"
-        
+
         # Count risks by level
         critical = sum(1 for r in risks if r.risk_level == "CRITICAL")
         high = sum(1 for r in risks if r.risk_level == "HIGH")
         medium = sum(1 for r in risks if r.risk_level == "MEDIUM")
         low = sum(1 for r in risks if r.risk_level == "LOW")
-        
+
         # Generate recommendations
         recommendations = self._generate_recommendations(risks)
-        
+
         return RiskResult(
             risks=risks,
             total_risks=len(risks),
@@ -303,38 +303,38 @@ class RiskEngine:
             },
             recommendations=recommendations
         )
-    
+
     def _generate_recommendations(self, risks: List[Risk]) -> List[str]:
         """Generate risk mitigation recommendations"""
         recommendations = []
-        
+
         critical = [r for r in risks if r.risk_level == "CRITICAL"]
         high = [r for r in risks if r.risk_level == "HIGH"]
-        
+
         if critical:
             recommendations.append(f"⚠️ CRITICAL: Address {len(critical)} critical risks immediately")
-        
+
         if high:
             recommendations.append(f"🔴 HIGH: Mitigate {len(high)} high risks in the next sprint")
-        
+
         recommendations.append("📋 Create a risk register and review it weekly")
         recommendations.append("🔄 Implement regular status reporting and risk tracking")
-        
+
         # Specific recommendations
         tech_risks = [r for r in risks if r.category == "TECHNICAL" and r.risk_level in ["CRITICAL", "HIGH"]]
         if tech_risks:
             recommendations.append("👨‍💻 Schedule technical design reviews for complex components")
-        
+
         security_risks = [r for r in risks if r.category == "SECURITY" and r.risk_level in ["CRITICAL", "HIGH"]]
         if security_risks:
             recommendations.append("🔒 Perform security audit and penetration testing")
-        
+
         schedule_risks = [r for r in risks if r.category == "SCHEDULE" and r.risk_level in ["CRITICAL", "HIGH"]]
         if schedule_risks:
             recommendations.append("📅 Implement buffer time in project schedule (20-30%)")
-        
+
         return recommendations
-    
+
     def get_risk_summary(self, risk_result: RiskResult) -> Dict:
         """Get formatted risk summary for API response"""
         return {

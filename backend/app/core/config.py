@@ -7,20 +7,21 @@ import os
 import secrets
 from functools import lru_cache
 from typing import List
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class Settings:
     """Application settings"""
-    
+
     # ============================================
     # APPLICATION
     # ============================================
     APP_ENV: str = os.getenv("APP_ENV", "development")
     APP_VERSION: str = "0.3.0"
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
-    
+
     # ============================================
     # SECURITY
     # ============================================
@@ -28,7 +29,7 @@ class Settings:
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
+
     # ============================================
     # RATE LIMITING
     # ============================================
@@ -36,7 +37,7 @@ class Settings:
     RATE_LIMIT_PER_MINUTE: int = 60
     RATE_LIMIT_AUTH_PER_MINUTE: int = 5  # Stricter for auth
     RATE_LIMIT_AI_PER_MINUTE: int = 10   # AI endpoints
-    
+
     # ============================================
     # CORS
     # ============================================
@@ -44,14 +45,14 @@ class Settings:
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
-    
+
     # ============================================
     # REQUEST LIMITS
     # ============================================
     MAX_REQUEST_SIZE_MB: int = int(os.getenv("MAX_REQUEST_SIZE_MB", "5"))
     MAX_PROMPT_LENGTH: int = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
     MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
-    
+
     # ============================================
     # AI SAFETY
     # ============================================
@@ -61,12 +62,12 @@ class Settings:
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "mock")
     AI_PROVIDER_API_KEY: str = os.getenv("AI_PROVIDER_API_KEY", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "gemini-2.5-flash")
-    
+
     # ============================================
     # DATABASE
     # ============================================
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./projectscope.db")
-    
+
     # ============================================
     # FEATURE FLAGS
     # ============================================

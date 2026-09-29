@@ -9,11 +9,11 @@ from starlette.responses import JSONResponse
 
 class RequestSizeLimitMiddleware:
     """Limits request body size to prevent DoS"""
-    
+
     def __init__(self, app, max_size_mb: int = 5):
         self.app = app
         self.max_size_bytes = max_size_mb * 1024 * 1024
-    
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -21,7 +21,7 @@ class RequestSizeLimitMiddleware:
 
         request = Request(scope, receive)
         content_length = request.headers.get("content-length")
-        
+
         if content_length:
             try:
                 if int(content_length) > self.max_size_bytes:
@@ -35,7 +35,7 @@ class RequestSizeLimitMiddleware:
                     return
             except ValueError:
                 pass
-        
+
         messages = []
         size = 0
         while True:

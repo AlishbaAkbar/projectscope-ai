@@ -1,21 +1,22 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from contextlib import asynccontextmanager
 from starlette.middleware.cors import CORSMiddleware as StarletteCORS
 
-from app.api.routes.projects import router as projects_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.metrics import router as metrics_router
-from app.database.session import init_db
+from app.api.routes.projects import router as projects_router
 from app.core.config import settings
+from app.core.logging_config import configure_logging, logger
 from app.core.rate_limit import limiter, rate_limit_handler
-from app.core.logging_config import logger, configure_logging
-from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.database.session import init_db
+from app.middleware.logging_middleware import LoggingMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
 from app.middleware.request_tracing import RequestTracingMiddleware
-from app.middleware.logging_middleware import LoggingMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 
 @asynccontextmanager

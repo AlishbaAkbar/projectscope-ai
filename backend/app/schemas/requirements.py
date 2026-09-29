@@ -1,6 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel
+
 
 class RequirementBase(BaseModel):
     text: str
@@ -16,6 +18,6 @@ class RequirementResponse(RequirementBase):
     project_id: int
     source: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True

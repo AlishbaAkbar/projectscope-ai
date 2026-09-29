@@ -3,16 +3,17 @@ import logging
 import re
 import time
 from typing import Optional
+
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.ai.prompts.requirement_analysis import SYSTEM_PROMPT, build_analysis_prompt
 from app.ai.providers.base import LLMProvider
 from app.ai.providers.factory import LLMProviderFactory
-from app.ai.prompts.requirement_analysis import SYSTEM_PROMPT, build_analysis_prompt
 from app.ai.schemas import RawAnalysisResponse
 from app.core.config import settings
 from app.models.llm_request import LLMRequest
-from app.utils.error_handlers import LLMValidationException, LLMProviderException
+from app.utils.error_handlers import LLMProviderException, LLMValidationException
 
 logger = logging.getLogger(__name__)
 RawAIAnalysisResponse = RawAnalysisResponse

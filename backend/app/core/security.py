@@ -3,11 +3,13 @@ Phase 22: Security Utilities
 JWT, password hashing, token management
 """
 
+import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-import secrets
+
 from app.core.config import settings
 
 # ============================================
@@ -57,7 +59,7 @@ def create_access_token(
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    
+
     payload = {
         "sub": str(user_id),
         "org_id": organization_id,
@@ -66,17 +68,17 @@ def create_access_token(
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
-    
+
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def create_refresh_token(user_id: int) -> Dict[str, Any]:
     """Create a refresh token (returns token + expiry)"""
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
     # Generate random token
     token = secrets.token_urlsafe(64)
-    
+
     return {
         "token": token,
         "expires_at": expire,
@@ -87,10 +89,10 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     """Decode and verify a JWT token"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
+
         if payload.get("type") != "access":
             return None
-        
+
         return {
             "user_id": int(payload.get("sub")),
             "organization_id": payload.get("org_id"),

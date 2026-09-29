@@ -3,10 +3,11 @@ Phase 11: Timeline Estimation Engine
 Calculates project timeline with dependencies, critical path, and milestones
 """
 
-from typing import Dict, List, Tuple, Optional, Set
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from collections import defaultdict
+from typing import Dict, List, Optional, Set, Tuple
+
 import networkx as nx
 
 
@@ -58,21 +59,21 @@ class TimelineEngine:
     - Working days (Monday-Friday)
     - 8 hours per working day
     """
-    
+
     # Working hours per day
     HOURS_PER_DAY = 8
-    
+
     # Working days: Monday=0, Friday=4
     WORKING_DAYS = [0, 1, 2, 3, 4]
-    
+
     def __init__(self, start_date: Optional[datetime] = None):
         self.start_date = start_date or datetime.now().replace(
             hour=9, minute=0, second=0, microsecond=0
         )
         self.graph = nx.DiGraph()
         self.task_nodes: Dict[str, TaskNode] = {}
-    
-    def add_task(self, task_id: str, title: str, hours: float, 
+
+    def add_task(self, task_id: str, title: str, hours: float,
                  role_id: int, dependencies: List[str] = None):
         """Add a task to the timeline"""
         node = TaskNode(
@@ -84,11 +85,11 @@ class TimelineEngine:
         )
         self.task_nodes[task_id] = node
         self.graph.add_node(task_id, hours=hours)
-        
+
         for dep in node.dependencies:
             if dep in self.task_nodes:
                 self.graph.add_edge(dep, task_id)
-    
+
     def add_tasks_from_list(self, tasks: List[Dict]):
         """Add multiple tasks from a list"""
         task_list = list(tasks)
@@ -108,11 +109,11 @@ class TimelineEngine:
             for dependency in node.dependencies:
                 if dependency in self.task_nodes:
                     self.graph.add_edge(dependency, task_id)
-    
+
     def calculate(self) -> TimelineResult:
         """
         Calculate complete timeline
-        
+
         Returns:
             TimelineResult with dates, critical path, milestones
         """
@@ -121,38 +122,38 @@ class TimelineEngine:
 
         if not nx.is_directed_acyclic_graph(self.graph):
             raise ValueError("Task dependency graph contains a cycle")
-        
+
         # 1. Calculate earliest start/finish (forward pass)
         self._calculate_earliest_times()
-        
+
         # 2. Calculate latest start/finish (backward pass)
         self._calculate_latest_times()
-        
+
         # 3. Calculate slack and identify critical path
         self._calculate_slack_and_critical()
-        
+
         # 4. Get critical path
         critical_path = self._get_critical_path()
-        
+
         # 5. Calculate end date
         end_date = self._calculate_end_date()
-        
+
         # 6. Generate milestones
         milestones = self._generate_milestones()
-        
+
         # 7. Calculate weekly breakdown
         weekly_breakdown = self._calculate_weekly_breakdown()
-        
+
         # 8. Find parallelization opportunities
         parallel_opps = self._find_parallelization_opportunities()
-        
+
         # 9. Find bottlenecks
         bottlenecks = self._find_bottlenecks()
-        
+
         # 10. Calculate total days
         total_days = (end_date - self.start_date).days
         total_working_days = self._count_working_days(self.start_date, end_date)
-        
+
         return TimelineResult(
             start_date=self.start_date,
             end_date=end_date,
@@ -165,7 +166,7 @@ class TimelineEngine:
             parallelization_opportunities=parallel_opps,
             bottlenecks=bottlenecks
         )
-    
+
     def _calculate_earliest_times(self):
         """Forward pass: calculate earliest start/finish times"""
         # Topological sort
@@ -173,7 +174,7 @@ class TimelineEngine:
             topo_order = list(nx.topological_sort(self.graph))
         except nx.NetworkXUnfeasible:
             raise ValueError("Task dependency graph contains a cycle") from None
-        
+
         for node_id in topo_order:
             node = self.task_nodes[node_id]
             if not node.dependencies:
@@ -188,12 +189,12 @@ class TimelineEngine:
                         if dep.earliest_finish and dep.earliest_finish > max_finish:
                             max_finish = dep.earliest_finish
                 node.earliest_start = max_finish
-            
+
             # Earliest finish = earliest start + hours
             node.earliest_finish = self._add_working_hours(
                 node.earliest_start, node.hours
             )
-    
+
     def _calculate_latest_times(self):
         """Backward pass: calculate latest start/finish times"""
         # Get all nodes in reverse topological order
@@ -201,16 +202,16 @@ class TimelineEngine:
             reverse_order = list(reversed(list(nx.topological_sort(self.graph))))
         except nx.NetworkXUnfeasible:
             raise ValueError("Task dependency graph contains a cycle") from None
-        
+
         # Get end date
         end_date = self._calculate_end_date()
-        
+
         for node_id in reverse_order:
             node = self.task_nodes[node_id]
-            
+
             # Find successors
             successors = list(self.graph.successors(node_id))
-            
+
             if not successors:
                 # No successors, finish at end
                 node.latest_finish = end_date
@@ -223,12 +224,12 @@ class TimelineEngine:
                         if succ.latest_start and succ.latest_start < min_start:
                             min_start = succ.latest_start
                 node.latest_finish = min_start
-            
+
             # Latest start = latest finish - hours
             node.latest_start = self._subtract_working_hours(
                 node.latest_finish, node.hours
             )
-    
+
     def _calculate_slack_and_critical(self):
         """Calculate slack time and identify critical tasks"""
         critical_path = set(self._get_critical_path())
@@ -267,73 +268,73 @@ class TimelineEngine:
             current = previous_task[current]
         path.reverse()
         return path
-    
+
     def _calculate_end_date(self) -> datetime:
         """Calculate project end date based on latest finish"""
         max_finish = self.start_date
         for node in self.task_nodes.values():
             if node.earliest_finish and node.earliest_finish > max_finish:
                 max_finish = node.earliest_finish
-        
+
         return max_finish
-    
+
     def _generate_milestones(self) -> List[Milestone]:
         """Generate milestones based on critical path and task completion"""
         milestones = []
-        
+
         # Start milestone
         milestones.append(Milestone(
             name="Project Start",
             date=self.start_date,
             description="Project initiation and planning"
         ))
-        
+
         # Milestones at 25%, 50%, 75%, 100% of critical path
         critical_tasks = [t for t in self.task_nodes.values() if t.is_critical]
         if critical_tasks:
             sorted_tasks = sorted(critical_tasks, key=lambda x: x.earliest_start)
             total = len(sorted_tasks)
-            
+
             milestone_points = [
                 (0.25, "25% Complete", "Initial development phase complete"),
                 (0.50, "50% Complete", "Core functionality complete"),
                 (0.75, "75% Complete", "Feature complete, testing phase"),
                 (1.0, "100% Complete", "Project complete, ready for deployment"),
             ]
-            
+
             for i, (pct, name, desc) in enumerate(milestone_points):
                 idx = min(int(pct * total), total - 1)
                 task = sorted_tasks[idx]
                 milestone_date = task.earliest_finish or self.start_date
-                
+
                 milestones.append(Milestone(
                     name=name,
                     date=milestone_date,
                     description=desc,
                     tasks=[task.id]
                 ))
-        
+
         return milestones
-    
+
     def _calculate_weekly_breakdown(self) -> Dict[str, float]:
         """Calculate hours per week"""
         weekly = defaultdict(float)
-        
+
         for node in self.task_nodes.values():
             if node.earliest_start:
                 week_key = node.earliest_start.strftime("%Y-W%W")
                 weekly[week_key] += node.hours
-        
+
         return dict(weekly)
-    
+
     def _find_parallelization_opportunities(self) -> List[Dict]:
         """Find tasks that can be done in parallel"""
         opportunities = []
         role_tasks = defaultdict(list)
-        
+
         for node in self.task_nodes.values():
             role_tasks[node.role_id].append(node)
-        
+
         for role_id, tasks in role_tasks.items():
             if len(tasks) > 1:
                 # Check if tasks overlap in time
@@ -347,13 +348,13 @@ class TimelineEngine:
                                     "tasks": [task1.id, task2.id],
                                     "estimated_savings": min(task1.hours, task2.hours)
                                 })
-        
+
         return opportunities
-    
+
     def _find_bottlenecks(self) -> List[Dict]:
         """Identify bottleneck tasks"""
         bottlenecks = []
-        
+
         for node in self.task_nodes.values():
             # Tasks with many dependencies are bottlenecks
             successors = list(self.graph.successors(node.id))
@@ -365,16 +366,16 @@ class TimelineEngine:
                     "slack": node.slack,
                     "warning": f"This task blocks {len(successors)} dependent tasks"
                 })
-        
+
         # Sort by number of dependents (highest first)
         bottlenecks.sort(key=lambda x: x["num_dependents"], reverse=True)
         return bottlenecks[:5]
-    
+
     def _add_working_hours(self, start: datetime, hours: float) -> datetime:
         """Add working hours to a date (Monday-Friday, 8 hours/day)"""
         current = start
         remaining_hours = hours
-        
+
         while remaining_hours > 0:
             if current.weekday() >= 5 or current.hour >= 17:
                 current = current.replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -386,14 +387,14 @@ class TimelineEngine:
             hours_today = min(remaining_hours, available_hours)
             current += timedelta(hours=hours_today)
             remaining_hours -= hours_today
-        
+
         return current
-    
+
     def _subtract_working_hours(self, end: datetime, hours: float) -> datetime:
         """Subtract working hours from a date"""
         current = end
         remaining_hours = hours
-        
+
         while remaining_hours > 0:
             if current.weekday() >= 5 or current.hour <= 9:
                 current = current.replace(hour=17, minute=0) - timedelta(days=1)
@@ -405,9 +406,9 @@ class TimelineEngine:
             hours_today = min(remaining_hours, available_hours)
             current -= timedelta(hours=hours_today)
             remaining_hours -= hours_today
-        
+
         return current
-    
+
     def _count_working_days(self, start: datetime, end: datetime) -> int:
         """Count working days between two dates"""
         days = 0
@@ -417,7 +418,7 @@ class TimelineEngine:
                 days += 1
             current += timedelta(days=1)
         return days
-    
+
     def _empty_result(self) -> TimelineResult:
         """Return empty timeline result"""
         return TimelineResult(
@@ -432,11 +433,11 @@ class TimelineEngine:
             parallelization_opportunities=[],
             bottlenecks=[]
         )
-    
+
     def get_formatted_timeline(self) -> Dict:
         """Get formatted timeline for API response"""
         result = self.calculate()
-        
+
         return {
             "start_date": result.start_date.isoformat(),
             "end_date": result.end_date.isoformat(),

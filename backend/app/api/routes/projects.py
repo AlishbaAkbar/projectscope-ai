@@ -1,28 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 
-from app.database.session import get_db
-from app.services.project_service import ProjectService
-from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
-from app.schemas.features import FeatureResponse
-from app.schemas.tasks import TaskResponse
-from app.schemas.analysis import ProjectAnalysisResult
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from app.ai.analyzer import RequirementAnalyzer
 from app.ai.providers.factory import get_provider
-from app.models.project import Project, Requirement
-from app.models.feature import Feature
-from app.models.task import Task
-from app.models.role import Role
-from app.services.feature_service import FeatureService
-from app.core.rate_limit import limiter
-from app.core.audit import AuditService
-from app.core.sanitize import sanitize_text, sanitize_prompt, detect_prompt_injection
-from app.core.config import settings
 from app.api.dependencies import get_current_user, get_optional_user
+from app.core.audit import AuditService
+from app.core.config import settings
+from app.core.rate_limit import limiter
+from app.core.sanitize import detect_prompt_injection, sanitize_prompt, sanitize_text
+from app.database.session import get_db
+from app.models.feature import Feature
+from app.models.project import Project, Requirement
+from app.models.role import Role
+from app.models.task import Task
 from app.models.user import User
+from app.schemas.analysis import ProjectAnalysisResult
+from app.schemas.features import FeatureResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.tasks import TaskResponse
+from app.services.feature_service import FeatureService
+from app.services.project_service import ProjectService
 
 router = APIRouter()
 
@@ -85,17 +87,17 @@ async def create_project(
     """Create project with audit log & sanitization"""
     service = ProjectService(db)
     audit = AuditService(db)
-    
+
     # Sanitize inputs
     project_data.name = sanitize_text(project_data.name)
     if project_data.description:
         project_data.description = sanitize_text(project_data.description)
-    
+
     # Tenant isolation: force organization_id from current user
     project_data.organization_id = current_user.organization_id
-    
+
     project = service.create_project(project_data)
-    
+
     audit.log_project_created(
         user_id=current_user.id,
         org_id=current_user.organization_id,
@@ -103,7 +105,7 @@ async def create_project(
         name=project.name,
         request=request,
     )
-    
+
     return project
 # ============================================
 # ROLE ROUTES (before /{project_id})
@@ -201,7 +203,7 @@ async def get_project(
         Project.id == project_id,
         Project.organization_id == current_user.organization_id,
     ).first()
-    
+
     if not project:
         # Return 404 (not 403) to prevent ID enumeration
         raise HTTPException(status_code=404, detail="Project not found")
@@ -239,18 +241,18 @@ async def delete_project(
 ):
     """Delete project with audit log"""
     audit = AuditService(db)
-    
+
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.organization_id == current_user.organization_id,
     ).first()
-    
+
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     db.delete(project)
     db.commit()
-    
+
     audit.log_project_deleted(
         user_id=current_user.id,
         org_id=current_user.organization_id,
@@ -318,16 +320,16 @@ async def get_tasks(project_id: int, db: Session = Depends(get_db)):
 @limiter.limit(f"{settings.RATE_LIMIT_AI_PER_MINUTE}/minute")
 async def analyze_project(request: Request, project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),):
     """Analyze with prompt sanitization"""
-    
+
     # Verify project belongs to user's org (tenant isolation)
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.organization_id == current_user.organization_id,
     ).first()
-    
+
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     # Sanitize project description for AI
     if project.description:
         if detect_prompt_injection(project.description):
@@ -603,8 +605,8 @@ async def analyze_project(request: Request, project_id: int, db: Session = Depen
         role_service = RoleService(db)
 
         # 6. ESTIMATION ENGINE
-        from app.estimation.rules_engine import EstimationEngine
         from app.estimation.complexity_factors import ComplexityFactors
+        from app.estimation.rules_engine import EstimationEngine
 
         estimation_engine = EstimationEngine()
         feature_names = [f.canonical_name for f in features]
@@ -784,21 +786,17 @@ async def analyze_project(request: Request, project_id: int, db: Session = Depen
 # REPORT GENERATION ENDPOINTS (Phase 21)
 # ============================================
 
-from fastapi.responses import FileResponse
-from fastapi import Query
-
-
 def _get_project_analysis(project_id: int, db: Session) -> Dict[str, Any]:
     """Helper: Get or generate analysis for a project"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     # Get related data
     features = db.query(Feature).filter(Feature.project_id == project_id).all()
     tasks = db.query(Task).filter(Task.project_id == project_id).all()
     requirements = db.query(Requirement).filter(Requirement.project_id == project_id).all()
-    
+
     return {
         "project": {
             "id": project.id,
@@ -854,21 +852,21 @@ async def download_pdf_report(
     try:
         # Run full analysis first
         analysis = await analyze_project(request, project_id, db, current_user)
-        
+
         # Convert to dict
         analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
-        
+
         # Generate PDF
         from app.reports.report_service import ReportService
         service = ReportService()
         filepath = service.generate_pdf(project_id, analysis_dict)
-        
+
         project = db.query(Project).filter(
             Project.id == project_id,
             Project.organization_id == current_user.organization_id,
         ).first()
         safe_name = (project.name or "project").replace(" ", "_")[:40]
-        
+
         return FileResponse(
             filepath,
             media_type="application/pdf",
@@ -892,17 +890,17 @@ async def download_docx_report(
     try:
         analysis = await analyze_project(request, project_id, db, current_user)
         analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
-        
+
         from app.reports.report_service import ReportService
         service = ReportService()
         filepath = service.generate_docx(project_id, analysis_dict)
-        
+
         project = db.query(Project).filter(
             Project.id == project_id,
             Project.organization_id == current_user.organization_id,
         ).first()
         safe_name = (project.name or "project").replace(" ", "_")[:40]
-        
+
         return FileResponse(
             filepath,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -924,17 +922,17 @@ async def download_markdown_report(
     try:
         analysis = await analyze_project(request, project_id, db, current_user)
         analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
-        
+
         from app.reports.report_service import ReportService
         service = ReportService()
         filepath = service.generate_markdown(project_id, analysis_dict)
-        
+
         project = db.query(Project).filter(
             Project.id == project_id,
             Project.organization_id == current_user.organization_id,
         ).first()
         safe_name = (project.name or "project").replace(" ", "_")[:40]
-        
+
         return FileResponse(
             filepath,
             media_type="text/markdown",
@@ -956,17 +954,17 @@ async def download_csv_report(
     try:
         analysis = await analyze_project(request, project_id, db, current_user)
         analysis_dict = analysis.dict() if hasattr(analysis, 'dict') else analysis
-        
+
         from app.reports.report_service import ReportService
         service = ReportService()
         filepath = service.generate_csv(project_id, analysis_dict)
-        
+
         project = db.query(Project).filter(
             Project.id == project_id,
             Project.organization_id == current_user.organization_id,
         ).first()
         safe_name = (project.name or "project").replace(" ", "_")[:40]
-        
+
         return FileResponse(
             filepath,
             media_type="text/csv",
@@ -990,7 +988,7 @@ async def get_all_reports_info(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     return {
         "project_id": project_id,
         "project_name": project.name,

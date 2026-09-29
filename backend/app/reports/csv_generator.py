@@ -4,17 +4,17 @@ Jira-compatible task export
 """
 
 import csv
-from typing import Dict, Any
 from datetime import datetime
+from typing import Any, Dict
 
 
 class CSVReportGenerator:
     """Generates Jira-compatible CSV exports"""
-    
+
     def generate(self, analysis: Dict[str, Any], output_path: str):
         """Generate CSV with Jira-compatible columns"""
         tasks = analysis.get("tasks", []) or []
-        
+
         # Jira-compatible headers
         headers = [
             "Issue Key",
@@ -28,10 +28,10 @@ class CSVReportGenerator:
             "Assignee",
             "Labels",
         ]
-        
+
         project = analysis.get("project") or {}
         project_name = project.get("name", "Project")
-        
+
         # Priority mapping
         priority_map = {
             "HIGH": "High",
@@ -39,16 +39,16 @@ class CSVReportGenerator:
             "MEDIUM": "Medium",
             "LOW": "Low",
         }
-        
+
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(headers)
-            
+
             for i, task in enumerate(tasks, start=1):
                 issue_key = f"PROJ-{i}"
                 hours = task.get("estimated_hours", 0)
                 story_points = max(1, round(hours / 4))  # 4 hours per point
-                
+
                 row = [
                     issue_key,
                     "Task",
@@ -62,5 +62,5 @@ class CSVReportGenerator:
                     f"{project_name},AI-Scoped",
                 ]
                 writer.writerow(row)
-        
+
         return output_path

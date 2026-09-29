@@ -2,10 +2,10 @@
 Phase 22: Authentication Schemas
 """
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ============================================
 # REQUEST SCHEMAS
@@ -17,7 +17,7 @@ class UserRegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=255)
     organization_name: Optional[str] = Field(None, max_length=200)
     organization_id: Optional[int] = None
-    
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -59,7 +59,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -68,7 +68,7 @@ class OrganizationResponse(BaseModel):
     id: int
     name: str
     plan: str
-    
+
     class Config:
         from_attributes = True
 

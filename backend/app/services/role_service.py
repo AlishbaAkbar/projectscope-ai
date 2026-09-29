@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.models.role import Role
@@ -9,31 +10,31 @@ from app.schemas.roles import RoleCreate, RoleResponse
 
 class RoleService:
     """Service for managing roles"""
-    
+
     def __init__(self, db: Session):
         self.db = db
-    
+
     def get_role(self, role_id: int) -> Optional[Role]:
         """Get role by ID"""
         return self.db.query(Role).filter(Role.id == role_id).first()
-    
+
     def get_role_by_name(self, name: str) -> Optional[Role]:
         """Get role by name"""
         return self.db.query(Role).filter(Role.name == name).first()
-    
+
     def get_all_roles(self) -> List[Role]:
         """Get all roles"""
         return self.db.query(Role).all()
-    
+
     def get_role_details(self, role_id: int) -> Dict:
         """Get detailed role information"""
         role = self.get_role(role_id)
         if not role:
             return {}
-        
+
         # Get skill metadata
         skill_metadata = role.skill_metadata or {}
-        
+
         return {
             "id": role.id,
             "name": role.name,
@@ -43,7 +44,7 @@ class RoleService:
             "level": skill_metadata.get("level", "Mid"),
             "created_at": role.created_at
         }
-    
+
     def get_role_summary(self, role_ids: List[int]) -> Dict:
         """Get summary for multiple roles"""
         summary = {}
@@ -52,18 +53,18 @@ class RoleService:
             if details:
                 summary[str(role_id)] = details
         return summary
-    
+
     def initialize_roles(self) -> int:
         """Initialize roles from predefined data"""
         # Check if roles already exist
         existing_count = self.db.query(Role).count()
         if existing_count > 0:
             return 0
-        
+
         roles_data = [
-            {"id": 1, "name": "UI/UX Designer", "hourly_rate": 45.0, 
-             "skill_metadata": {"description": "Designs user interfaces and user experiences", 
-                               "skills": ["Figma", "Adobe XD", "Sketch", "Prototyping"], 
+            {"id": 1, "name": "UI/UX Designer", "hourly_rate": 45.0,
+             "skill_metadata": {"description": "Designs user interfaces and user experiences",
+                               "skills": ["Figma", "Adobe XD", "Sketch", "Prototyping"],
                                "level": "Senior"}},
             {"id": 2, "name": "Frontend Developer", "hourly_rate": 50.0,
              "skill_metadata": {"description": "Builds user-facing web interfaces",
@@ -102,7 +103,7 @@ class RoleService:
                                "skills": ["Strategy", "Leadership", "Business Planning"],
                                "level": "Executive"}},
         ]
-        
+
         created_count = 0
         for role_data in roles_data:
             # Check if role exists
@@ -116,12 +117,12 @@ class RoleService:
                 )
                 self.db.add(role)
                 created_count += 1
-        
+
         if created_count > 0:
             self.db.commit()
-        
+
         return created_count
-    
+
     def format_role_for_task(self, role_id: int) -> Dict:
         """Format role information for task display"""
         details = self.get_role_details(role_id)
@@ -132,7 +133,7 @@ class RoleService:
                 "hourly_rate": 50.0
             }
         return details
-    
+
     def get_role_task_summary(self, task_summary: Dict) -> Dict:
         """Enrich task summary with role details"""
         enriched = {}

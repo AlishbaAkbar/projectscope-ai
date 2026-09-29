@@ -3,9 +3,9 @@ Phase 26: Prometheus Metrics
 Application metrics for monitoring and alerting.
 """
 
-from prometheus_client import Counter, Histogram, Gauge, Info
 import platform
 
+from prometheus_client import Counter, Gauge, Histogram, Info
 
 # ============================================
 # APPLICATION INFO

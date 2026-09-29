@@ -5,7 +5,8 @@ requirements based on keywords in the text.
 
 import json
 import re
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from app.ai.providers.base import BaseProvider
 
 
@@ -36,7 +37,7 @@ class MockLLMProvider(BaseProvider):
             if any(keyword in description for keyword in keywords):
                 return project_type
         return "saas"
-    
+
     # Keyword → (feature, category) mapping
     FEATURE_KEYWORDS = {
         # Authentication
@@ -50,18 +51,18 @@ class MockLLMProvider(BaseProvider):
         "2fa": ("AUTHENTICATION", "technical"),
         "oauth": ("AUTHENTICATION", "technical"),
         "social login": ("AUTHENTICATION", "functional"),
-        
+
         # Product catalog
         "product": ("PRODUCT_CATALOG", "functional"),
         "catalog": ("PRODUCT_CATALOG", "functional"),
         "inventory": ("PRODUCT_CATALOG", "functional"),
         "listing": ("PRODUCT_CATALOG", "functional"),
-        
+
         # Cart & Checkout
         "cart": ("CART", "functional"),
         "basket": ("CART", "functional"),
         "checkout": ("CART", "functional"),
-        
+
         # Payment
         "payment": ("PAYMENT", "functional"),
         "stripe": ("PAYMENT", "technical"),
@@ -70,30 +71,30 @@ class MockLLMProvider(BaseProvider):
         "invoice": ("PAYMENT", "functional"),
         "subscription": ("PAYMENT", "functional"),
         "pricing": ("PAYMENT", "functional"),
-        
+
         # Search
         "search": ("SEARCH", "functional"),
         "filter": ("SEARCH", "functional"),
         "sort": ("SEARCH", "functional"),
-        
+
         # Orders
         "order": ("ORDER_MANAGEMENT", "functional"),
         "tracking": ("ORDER_MANAGEMENT", "functional"),
         "shipment": ("ORDER_MANAGEMENT", "functional"),
         "delivery": ("ORDER_MANAGEMENT", "functional"),
-        
+
         # Admin
         "admin": ("ADMIN_PANEL", "functional"),
         "dashboard": ("ADMIN_PANEL", "functional"),
         "management": ("ADMIN_PANEL", "functional"),
         "staff": ("ADMIN_PANEL", "functional"),
-        
+
         # Mobile
         "mobile": ("MOBILE_APP", "functional"),
         "ios": ("MOBILE_APP", "functional"),
         "android": ("MOBILE_APP", "functional"),
         "app": ("MOBILE_APP", "functional"),
-        
+
         # Real-time
         "real-time": ("REAL_TIME", "technical"),
         "realtime": ("REAL_TIME", "technical"),
@@ -104,74 +105,74 @@ class MockLLMProvider(BaseProvider):
         "reminder": ("NOTIFICATIONS", "functional"),
         "email": ("NOTIFICATIONS", "functional"),
         "sms": ("NOTIFICATIONS", "functional"),
-        
+
         # Video
         "video": ("VIDEO_CONFERENCE", "functional"),
         "call": ("VIDEO_CONFERENCE", "functional"),
         "consultation": ("VIDEO_CONFERENCE", "functional"),
-        
+
         # Scheduling
         "appointment": ("APPOINTMENT_SCHEDULING", "functional"),
         "scheduling": ("APPOINTMENT_SCHEDULING", "functional"),
         "calendar": ("APPOINTMENT_SCHEDULING", "functional"),
         "booking": ("APPOINTMENT_SCHEDULING", "functional"),
-        
+
         # Records
         "record": ("RECORDS_MANAGEMENT", "functional"),
         "ehr": ("RECORDS_MANAGEMENT", "technical"),
         "history": ("RECORDS_MANAGEMENT", "functional"),
         "medical": ("RECORDS_MANAGEMENT", "functional"),
         "patient": ("RECORDS_MANAGEMENT", "functional"),
-        
+
         # Prescriptions
         "prescription": ("PRESCRIPTION_MANAGEMENT", "functional"),
         "pharmacy": ("PRESCRIPTION_MANAGEMENT", "functional"),
         "medication": ("PRESCRIPTION_MANAGEMENT", "functional"),
-        
+
         # Reports
         "report": ("REPORTS", "functional"),
         "analytics": ("ANALYTICS", "functional"),
         "insight": ("ANALYTICS", "functional"),
         "chart": ("ANALYTICS", "functional"),
-        
+
         # Reviews
         "review": ("REVIEWS", "functional"),
         "rating": ("REVIEWS", "functional"),
         "feedback": ("REVIEWS", "functional"),
-        
+
         # Content
         "blog": ("CONTENT_MANAGEMENT", "functional"),
         "post": ("CONTENT_MANAGEMENT", "functional"),
         "article": ("CONTENT_MANAGEMENT", "functional"),
         "forum": ("CONTENT_MANAGEMENT", "functional"),
         "discussion": ("CONTENT_MANAGEMENT", "functional"),
-        
+
         # Learning
         "course": ("LEARNING_MANAGEMENT", "functional"),
         "lesson": ("LEARNING_MANAGEMENT", "functional"),
         "student": ("LEARNING_MANAGEMENT", "functional"),
         "quiz": ("LEARNING_MANAGEMENT", "functional"),
         "certificate": ("LEARNING_MANAGEMENT", "functional"),
-        
+
         # Compliance
         "hipaa": ("COMPLIANCE", "technical"),
         "gdpr": ("COMPLIANCE", "technical"),
         "pci": ("COMPLIANCE", "technical"),
         "compliance": ("COMPLIANCE", "technical"),
         "audit": ("COMPLIANCE", "technical"),
-        
+
         # Security
         "security": ("SECURITY", "technical"),
         "encryption": ("SECURITY", "technical"),
         "secure": ("SECURITY", "technical"),
-        
+
         # Other
         "progress": ("PROGRESS_TRACKING", "functional"),
         "recommendation": ("RECOMMENDATIONS", "functional"),
         "integration": ("EXTERNAL_INTEGRATIONS", "technical"),
         "api": ("API_INTEGRATION", "technical"),
     }
-    
+
     # Non-functional requirements patterns
     NFR_PATTERNS = [
         (r"responsive|mobile-friendly|adaptive", "NON_FUNCTIONAL", "The system must be responsive and mobile-friendly", "non_functional"),
@@ -180,7 +181,7 @@ class MockLLMProvider(BaseProvider):
         (r"fast|performance|<(\d+)\s*(ms|s|seconds)|latency", "NON_FUNCTIONAL", "The system must meet performance SLAs", "non_functional"),
         (r"available|uptime|reliable", "NON_FUNCTIONAL", "The system must ensure high availability", "non_functional"),
     ]
-    
+
     def analyze_requirements(self, project_description: str) -> Dict[str, Any]:
         """Extract requirements from project description using keyword matching"""
 
@@ -194,12 +195,12 @@ class MockLLMProvider(BaseProvider):
         project_type = self._detect_project_type(description)
         detected_features = set()
         requirements = []
-        
+
         # 1. Detect features from keywords
         for keyword, (feature, category) in self.FEATURE_KEYWORDS.items():
             if keyword in description:
                 detected_features.add(feature)
-        
+
         # 2. Generate requirements for detected features
         feature_reqs = {
             "AUTHENTICATION": ("Users can register and login securely", "functional"),
@@ -228,7 +229,7 @@ class MockLLMProvider(BaseProvider):
             "EXTERNAL_INTEGRATIONS": ("System integrates with external services", "technical"),
             "API_INTEGRATION": ("System provides/exposes REST APIs", "technical"),
         }
-        
+
         for feature in detected_features:
             if feature in feature_reqs:
                 text, category = feature_reqs[feature]
@@ -238,7 +239,7 @@ class MockLLMProvider(BaseProvider):
                     "feature": feature,
                     "confidence": 0.9,
                 })
-        
+
         # 3. Detect non-functional requirements
         for pattern, _, text, category in self.NFR_PATTERNS:
             if re.search(pattern, description):
@@ -248,7 +249,7 @@ class MockLLMProvider(BaseProvider):
                     "feature": "NON_FUNCTIONAL",
                     "confidence": 0.85,
                 })
-        
+
         # 4. If nothing detected, use fallback
         if not requirements:
             requirements = []
@@ -298,5 +299,5 @@ class MockLLMProvider(BaseProvider):
             ],
             "total_estimated_hours": 0,
         }
-    
+
 MockProvider = MockLLMProvider

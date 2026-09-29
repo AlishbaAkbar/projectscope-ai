@@ -1,6 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class TaskBase(BaseModel):
     title: str
@@ -26,6 +28,6 @@ class TaskResponse(TaskBase):
     feature_id: Optional[int] = None
     role_id: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True

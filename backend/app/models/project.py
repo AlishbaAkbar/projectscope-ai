@@ -1,19 +1,20 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey, DateTime, Text, Boolean
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.database.session import Base
 
 
 class Organization(Base):
     __tablename__ = "organizations"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     plan = Column(String(50), default="free")  # free, pro, enterprise
     slug = Column(String(100), unique=True, nullable=True)  # for URLs
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     projects = relationship("Project", back_populates="organization", cascade="all, delete-orphan")
     users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
@@ -22,7 +23,7 @@ class Organization(Base):
 class Project(Base):
     __tablename__ = "projects"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, default=1)
     name = Column(String(200), nullable=False)
@@ -38,7 +39,7 @@ class Project(Base):
     constraints = Column(JSON, default=[])
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # ✅ Relationship back to organization
     organization = relationship("Organization", back_populates="projects")
     requirements = relationship("Requirement", back_populates="project", cascade="all, delete-orphan")
@@ -47,7 +48,7 @@ class Project(Base):
 class Requirement(Base):
     __tablename__ = "requirements"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     category = Column(String(50), default="general")
@@ -55,14 +56,14 @@ class Requirement(Base):
     source = Column(String(50), default="user_input")
     confidence = Column(Float, default=0.8)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     project = relationship("Project", back_populates="requirements")
 
 
 class MissingInformation(Base):
     __tablename__ = "missing_information"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     question = Column(Text, nullable=False)
@@ -76,7 +77,7 @@ class MissingInformation(Base):
 class Assumption(Base):
     __tablename__ = "assumptions"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     text = Column(Text, nullable=False)

@@ -4,9 +4,10 @@ Instantiates the correct LLM provider based on settings or explicit override.
 """
 
 from typing import Optional
+
 from app.ai.providers.base import LLMProvider
-from app.ai.providers.mock_provider import MockLLMProvider
 from app.ai.providers.gemini_provider import GeminiProvider
+from app.ai.providers.mock_provider import MockLLMProvider
 from app.ai.providers.openai_provider import OpenAIProvider
 from app.utils.config import get_settings
 

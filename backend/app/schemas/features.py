@@ -1,7 +1,10 @@
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel
+
 from app.schemas.tasks import TaskResponse
+
 
 class FeatureBase(BaseModel):
     canonical_name: str
@@ -19,7 +22,7 @@ class FeatureResponse(FeatureBase):
     id: int
     project_id: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

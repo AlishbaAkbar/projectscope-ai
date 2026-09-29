@@ -1,17 +1,17 @@
 from app.database.session import Base
+from app.models.audit import AuditLog
+from app.models.feature import Feature
+from app.models.llm_request import LLMRequest
 from app.models.project import (
+    Assumption,
+    MissingInformation,
     Organization,
     Project,
     Requirement,
-    MissingInformation,
-    Assumption,
 )
-from app.models.feature import Feature
-from app.models.task import Task
 from app.models.role import Role
-from app.models.user import User, RefreshToken  # ✅ NEW
-from app.models.audit import AuditLog
-from app.models.llm_request import LLMRequest
+from app.models.task import Task
+from app.models.user import RefreshToken, User  # ✅ NEW
 
 __all__ = [
     "Base",

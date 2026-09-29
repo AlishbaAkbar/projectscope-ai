@@ -2,8 +2,8 @@
 Phase 18-19: Explainable AI Engine with RAG
 """
 
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -34,11 +34,11 @@ class ExplanationEngine:
     """
     Generates human-readable explanations with optional RAG enhancement
     """
-    
+
     def __init__(self, use_rag: bool = True):
         self.use_rag = use_rag
         self.retriever = None
-        
+
         if use_rag:
             try:
                 from app.rag.retriever import Retriever
@@ -46,7 +46,7 @@ class ExplanationEngine:
             except Exception as e:
                 print(f"⚠️ RAG not available: {e}")
                 self.use_rag = False
-    
+
     def explain_project(self,
                        features: List[str],
                        complexities: List[int],
@@ -57,7 +57,7 @@ class ExplanationEngine:
                        complexity_score: float,
                        hybrid_estimate: Dict = None) -> ExplanationResult:
         """Generate complete explanation with optional RAG"""
-        
+
         # Get RAG knowledge if enabled
         knowledge = None
         if self.use_rag and self.retriever:
@@ -69,42 +69,42 @@ class ExplanationEngine:
                 )
             except Exception as e:
                 print(f"⚠️ RAG retrieval failed: {e}")
-        
+
         explanations = []
-        
+
         # 1. Complexity Explanation (with RAG)
         complexity_exp = self._explain_complexity(
             features, complexities, complexity_score, knowledge
         )
         explanations.append(complexity_exp)
-        
+
         # 2. Cost Explanation
         cost_exp = self._explain_cost(total_hours, total_cost, knowledge)
         explanations.append(cost_exp)
-        
+
         # 3. Timeline Explanation
         timeline_exp = self._explain_timeline(timeline_days, total_hours, knowledge)
         explanations.append(timeline_exp)
-        
+
         # 4. Risk Explanation
         risk_exp = self._explain_risks(risks, knowledge)
         explanations.append(risk_exp)
-        
+
         # 5. Estimate Explanation
         estimate_exp = self._explain_estimate(total_hours, hybrid_estimate, knowledge)
         explanations.append(estimate_exp)
-        
+
         # Generate summary
         summary = self._generate_summary(
             features, total_hours, total_cost, timeline_days, risks
         )
-        
+
         # Generate assumptions
         assumptions = self._generate_assumptions(features, knowledge)
-        
+
         # Generate limitations
         limitations = self._generate_limitations()
-        
+
         # Prepare knowledge used
         knowledge_used = []
         if knowledge:
@@ -114,7 +114,7 @@ class ExplanationEngine:
                     "category": snippet.get("category"),
                     "similarity": snippet.get("similarity")
                 })
-        
+
         return ExplanationResult(
             summary=summary,
             complexity_explanation=complexity_exp.explanation,
@@ -127,13 +127,13 @@ class ExplanationEngine:
             limitations=limitations,
             knowledge_used=knowledge_used
         )
-    
+
     def _explain_complexity(self, features: List[str], complexities: List[int],
                            score: float, knowledge: Dict = None) -> Explanation:
         """Explain complexity score with optional RAG knowledge"""
         reasons = []
         sources = []
-        
+
         # Feature-based reasons
         if "PAYMENT" in features:
             reasons.append("payment integration (high complexity)")
@@ -147,12 +147,12 @@ class ExplanationEngine:
             reasons.append("mobile application support")
         if "ORDER_MANAGEMENT" in features:
             reasons.append("order tracking and management")
-        
+
         # Check high complexity features
         high_complexity = [f for f, c in zip(features, complexities) if c >= 5]
         if high_complexity:
             reasons.append(f"high complexity in: {', '.join(high_complexity)}")
-        
+
         # Add RAG knowledge if available
         rag_context = ""
         if knowledge and knowledge.get("policies"):
@@ -160,7 +160,7 @@ class ExplanationEngine:
                 if "estimation" in policy.get("title", "").lower():
                     rag_context = f" Based on our estimation policy: {policy['content'][:200]}..."
                     sources.append(policy.get("title"))
-        
+
         # Generate explanation
         if score >= 30:
             level = "high"
@@ -184,7 +184,7 @@ class ExplanationEngine:
                 f"The project has {len(features)} features with relatively simple requirements. "
                 f"This should be manageable for a standard development team.{rag_context}"
             )
-        
+
         return Explanation(
             category="COMPLEXITY",
             title=f"Complexity Score: {score:.0f}/100 ({level.upper()})",
@@ -193,29 +193,29 @@ class ExplanationEngine:
             factors=reasons,
             sources=sources
         )
-    
+
     def _explain_cost(self, total_hours: float, total_cost: float,
                      knowledge: Dict = None) -> Explanation:
         """Explain cost estimate with optional RAG"""
         avg_rate = total_cost / total_hours if total_hours > 0 else 0
-        
+
         explanation = (
             f"Total estimated cost is ${total_cost:,.2f}. "
             f"This is based on {total_hours:,.1f} hours of work at an average rate of ${avg_rate:.2f}/hour. "
         )
-        
+
         # Add RAG template info
         sources = []
         if knowledge and knowledge.get("templates"):
             template = knowledge["templates"][0]
             explanation += f"Similar projects have cost in the range of {template['content'][:150]}... "
             sources.append(template.get("title"))
-        
+
         explanation += (
             f"The cost includes all roles (design, development, QA, DevOps) required for the project. "
             f"The cost range is ${total_cost*0.8:,.2f} - ${total_cost*1.2:,.2f} depending on actual implementation."
         )
-        
+
         return Explanation(
             category="COST",
             title=f"Estimated Cost: ${total_cost:,.2f}",
@@ -223,47 +223,47 @@ class ExplanationEngine:
             impact="HIGH" if total_cost > 50000 else "MEDIUM" if total_cost > 20000 else "LOW",
             sources=sources
         )
-    
+
     def _explain_timeline(self, timeline_days: int, total_hours: float,
                          knowledge: Dict = None) -> Explanation:
         """Explain timeline estimate"""
         weeks = timeline_days / 5 if timeline_days > 0 else 0
-        
+
         explanation = (
             f"Estimated timeline is {timeline_days} working days ({weeks:.1f} weeks). "
             f"With {total_hours:,.1f} total hours and a team working in parallel, "
             f"the project can be completed in this timeframe. "
         )
-        
+
         if timeline_days > 60:
             explanation += "This is a long-term project requiring careful planning and regular milestones."
         elif timeline_days > 30:
             explanation += "This is a medium-term project with multiple phases."
         else:
             explanation += "This is a relatively short project that can be completed quickly."
-        
+
         return Explanation(
             category="TIMELINE",
             title=f"Timeline: {timeline_days} working days",
             explanation=explanation,
             impact="HIGH" if timeline_days > 60 else "MEDIUM" if timeline_days > 30 else "LOW"
         )
-    
+
     def _explain_risks(self, risks: Dict, knowledge: Dict = None) -> Explanation:
         """Explain risks with optional RAG"""
         total = risks.get("total_risks", 0)
         level = risks.get("risk_level", "UNKNOWN")
-        
+
         top_risks = risks.get("top_risks", [])
         risk_names = [r.get("name", "") for r in top_risks[:3]]
-        
+
         explanation = (
             f"Risk assessment identified {total} risks with overall risk level: {level}. "
         )
-        
+
         if risk_names:
             explanation += f"Top risks include: {', '.join(risk_names)}. "
-        
+
         if level in ["CRITICAL", "HIGH"]:
             explanation += (
                 "These risks require immediate attention and mitigation strategies. "
@@ -279,7 +279,7 @@ class ExplanationEngine:
                 "Risk levels are manageable with standard project management practices. "
                 "Continue regular monitoring."
             )
-        
+
         return Explanation(
             category="RISK",
             title=f"Risk Level: {level} ({total} risks)",
@@ -287,20 +287,20 @@ class ExplanationEngine:
             impact=level,
             factors=risk_names
         )
-    
+
     def _explain_estimate(self, total_hours: float, hybrid_estimate: Dict = None,
                          knowledge: Dict = None) -> Explanation:
         """Explain the estimate calculation"""
         explanation = (
             f"The final estimate of {total_hours:,.1f} hours is calculated using a hybrid approach: "
         )
-        
+
         if hybrid_estimate:
             breakdown = hybrid_estimate.get("breakdown", {})
             weights = hybrid_estimate.get("weights_used", {})
             confidence = hybrid_estimate.get("confidence", 0)
             method = hybrid_estimate.get("reconciliation_method", "Balanced")
-            
+
             explanation += (
                 f"Rule-based estimate: {breakdown.get('rule_based', 0):,.1f} hours, "
                 f"ML prediction: {breakdown.get('ml_prediction', 0):,.1f} hours, "
@@ -315,25 +315,25 @@ class ExplanationEngine:
                 "This estimate is based on a deterministic rule-based engine "
                 "using historical task data and complexity factors."
             )
-        
+
         return Explanation(
             category="ESTIMATE",
             title=f"Estimate: {total_hours:,.1f} hours",
             explanation=explanation,
             impact="HIGH"
         )
-    
+
     def _generate_summary(self, features: List[str], total_hours: float,
                           total_cost: float, timeline_days: int, risks: Dict) -> str:
         """Generate executive summary"""
         risk_level = risks.get("risk_level", "UNKNOWN")
-        
+
         summary = (
             f"This project involves {len(features)} key features and is estimated to require "
             f"{total_hours:,.1f} hours of development effort, costing approximately "
             f"${total_cost:,.2f}. The estimated timeline is {timeline_days} working days. "
         )
-        
+
         if risk_level in ["CRITICAL", "HIGH"]:
             summary += (
                 f"⚠️ The project has {risk_level} risk level and requires careful attention "
@@ -349,9 +349,9 @@ class ExplanationEngine:
                 f"The project has {risk_level} risk level and should proceed smoothly "
                 f"with standard development practices."
             )
-        
+
         return summary
-    
+
     def _generate_assumptions(self, features: List[str], knowledge: Dict = None) -> List[str]:
         """Generate list of assumptions"""
         assumptions = [
@@ -361,18 +361,18 @@ class ExplanationEngine:
             "Client provides timely feedback and approvals",
             "Third-party services (if any) remain available and functional"
         ]
-        
+
         if "PAYMENT" in features:
             assumptions.append("Payment provider account will be set up and approved")
-        
+
         if "MOBILE_APP" in features:
             assumptions.append("App store approval processes will be completed on time")
-        
+
         if "REAL_TIME" in features:
             assumptions.append("Infrastructure can support real-time connections")
-        
+
         return assumptions
-    
+
     def _generate_limitations(self) -> List[str]:
         """Generate list of limitations"""
         return [
@@ -382,7 +382,7 @@ class ExplanationEngine:
             "External factors (market, technology) may impact timeline",
             "ML predictions are based on limited historical data and may improve over time"
         ]
-    
+
     def get_formatted_explanation(self, result: ExplanationResult) -> Dict:
         """Format explanation for API response"""
         return {

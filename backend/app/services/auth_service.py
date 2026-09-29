@@ -7,20 +7,20 @@ NO SELF-IMPORT — imports only models, schemas, and core security.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.user import User, RefreshToken
-from app.models.project import Organization
 from app.core.security import (
-    hash_password,
-    verify_password,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     create_refresh_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
+    hash_password,
+    verify_password,
 )
-from app.schemas.auth import UserRegisterRequest, UserLoginRequest
+from app.models.project import Organization
+from app.models.user import RefreshToken, User
+from app.schemas.auth import UserLoginRequest, UserRegisterRequest
 
 
 class AuthService:

@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class ProjectBase(BaseModel):
@@ -41,6 +42,6 @@ class ProjectResponse(ProjectBase):
     constraints: Optional[list] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True

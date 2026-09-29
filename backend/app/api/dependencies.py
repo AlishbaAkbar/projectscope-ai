@@ -3,15 +3,15 @@ Phase 22: FastAPI Dependencies
 Auth & tenant isolation
 """
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.database.session import get_db
-from app.core.security import decode_access_token
-from app.models.user import User
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
+from app.core.security import decode_access_token
+from app.database.session import get_db
+from app.models.user import User
 
 # Bearer token scheme
 security = HTTPBearer(auto_error=False)
@@ -22,14 +22,14 @@ async def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     """Get current authenticated user from JWT"""
-    
+
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     payload = decode_access_token(credentials.credentials)
     if not payload:
         raise HTTPException(
@@ -37,26 +37,26 @@ async def get_current_user(
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     user = db.query(User).filter(User.id == payload["user_id"]).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is deactivated",
         )
-    
+
     if user.deleted_at:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account has been deleted",
         )
-    
+
     return user
 
 
@@ -72,11 +72,11 @@ async def get_optional_user(
     """Get user if authenticated, else None"""
     if not credentials:
         return None
-    
+
     payload = decode_access_token(credentials.credentials)
     if not payload:
         return None
-    
+
     return db.query(User).filter(User.id == payload["user_id"]).first()
 
 

@@ -8,10 +8,10 @@ import sys
 import uuid
 from contextvars import ContextVar
 from typing import Optional
+
 import structlog
 
 from app.core.config import settings
-
 
 # Context variable for request ID (async-safe)
 request_id_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
@@ -50,14 +50,14 @@ def add_context(logger, method_name, event_dict):
 
 def configure_logging():
     """Configure structlog for structured JSON logs"""
-    
+
     # Configure standard logging
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=logging.INFO if not settings.DEBUG else logging.DEBUG,
     )
-    
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -76,7 +76,7 @@ def configure_logging():
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     return structlog.get_logger()
 
 

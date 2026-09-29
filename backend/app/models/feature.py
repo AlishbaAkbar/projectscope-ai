@@ -1,13 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey, DateTime
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.database.session import Base
 
 
 class Feature(Base):
     __tablename__ = "features"
     __table_args__ = {'extend_existing': True}
-    
+
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     canonical_name = Column(String(100), nullable=False)
@@ -18,6 +19,6 @@ class Feature(Base):
     dependencies = Column(JSON, default=[])
     source_requirement_ids = Column(JSON, default=[])
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # ✅ Must have this — matches Task.feature back_populates
     tasks = relationship("Task", back_populates="feature", cascade="all, delete-orphan")
