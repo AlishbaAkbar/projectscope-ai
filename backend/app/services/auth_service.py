@@ -191,7 +191,7 @@ class AuthService:
 
         return {
             "access_token": access_token,
-            "token_type": "bearer",
+            "token_type": "bearer",  # nosec B105
             "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
 
@@ -277,7 +277,7 @@ class AuthService:
         return {
             "access_token": access_token,
             "refresh_token": refresh_data["token"],
-            "token_type": "bearer",
+            "token_type": "bearer",  # nosec B105
             "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": user,
             "organization": org,
