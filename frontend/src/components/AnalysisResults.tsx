@@ -52,8 +52,9 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({
     const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const projectName = result.project?.name || 'project';
     a.href = url;
-    a.download = `${result.project.name.toLowerCase().replace(/\s+/g, '_')}_analysis.json`;
+    a.download = `${projectName.toLowerCase().replace(/\s+/g, '_')}_analysis.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -115,17 +116,17 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({
                 {result.project_type.replace('_', ' ')}
               </span>
               <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                {result.project.platform}
+                {result.project?.platform || 'Platform unspecified'}
               </span>
               <span className="inline-flex items-center rounded-lg bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
                 Validated Schema
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              {result.project.name}
+              {result.project?.name || 'Untitled project'}
             </h1>
             <p className="text-sm text-slate-600 mt-2 max-w-3xl leading-relaxed">
-              {result.project.description}
+              {result.project?.description || 'No project description provided.'}
             </p>
 
             {/* Target Personas */}
