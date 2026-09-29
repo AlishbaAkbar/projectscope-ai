@@ -2,28 +2,36 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-import logging
 from contextlib import asynccontextmanager
+from starlette.middleware.cors import CORSMiddleware as StarletteCORS
 
 from app.api.routes.projects import router as projects_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.metrics import router as metrics_router
 from app.database.session import init_db
 from app.core.config import settings
 from app.core.rate_limit import limiter, rate_limit_handler
+from app.core.logging_config import logger, configure_logging
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.request_size import RequestSizeLimitMiddleware
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("projectscope")
+from app.middleware.request_tracing import RequestTracingMiddleware
+from app.middleware.logging_middleware import LoggingMiddleware
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Starting ProjectScope AI v{settings.APP_VERSION}...")
-    logger.info(f"Environment: {settings.APP_ENV}")
+    configure_logging()
+    logger.info(
+        "app_starting",
+        version=settings.APP_VERSION,
+        env=settings.APP_ENV,
+        ai_provider=settings.AI_PROVIDER,
+        ai_model=settings.AI_MODEL,
+    )
     init_db()
+    logger.info("app_started")
     yield
-    logger.info("Shutting down...")
+    logger.info("app_shutting_down")
 
 
 app = FastAPI(
@@ -37,30 +45,29 @@ app = FastAPI(
 )
 
 # ============================================
-# 1. RATE LIMITING
+# MIDDLEWARE (order matters!)
 # ============================================
+
+# 1. Request tracing (outermost — logs everything)
+app.add_middleware(RequestTracingMiddleware)
+
+# 2. Rate limiting
 if settings.RATE_LIMIT_ENABLED:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
     app.add_middleware(SlowAPIMiddleware)
 
-# ============================================
-# 2. SECURITY HEADERS
-# ============================================
+# 3. Security headers
 if settings.ENABLE_SECURITY_HEADERS:
     app.add_middleware(SecurityHeadersMiddleware)
 
-# ============================================
-# 3. REQUEST SIZE LIMIT
-# ============================================
+# 4. Request size limit
 app.add_middleware(
     RequestSizeLimitMiddleware,
     max_size_mb=settings.MAX_REQUEST_SIZE_MB,
 )
 
-# ============================================
-# 4. CORS
-# ============================================
+# 5. CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -72,8 +79,10 @@ app.add_middleware(
 )
 
 # ============================================
-# 5. ROUTES
+# ROUTES
 # ============================================
+
+app.include_router(metrics_router, tags=["Observability"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
 
@@ -88,9 +97,5 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "ProjectScope AI",
-        "version": settings.APP_VERSION,
-    }
+async def simple_health():
+    return {"status": "healthy", "service": "ProjectScope AI","version": settings.APP_VERSION,}
