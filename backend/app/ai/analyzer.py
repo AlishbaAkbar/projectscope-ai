@@ -1,3 +1,8 @@
+"""
+Requirement Analyzer — orchestrates LLM interaction, JSON extraction, 
+Pydantic validation, retry recovery, and request logging.
+"""
+
 import json
 import logging
 import re
@@ -21,7 +26,8 @@ RawAIAnalysisResponse = RawAnalysisResponse
 
 class RequirementAnalyzer:
     """
-    Orchestrates LLM interaction, JSON extraction, Pydantic validation, and retry recovery.
+    Orchestrates LLM interaction, JSON extraction, Pydantic validation, 
+    and retry recovery.
     """
 
     def __init__(
@@ -36,16 +42,19 @@ class RequirementAnalyzer:
 
     def _extract_json_string(self, raw_text: str) -> str:
         """
-        Strips markdown code blocks, HTML tags, or surrounding whitespace from raw LLM output.
+        Strips markdown code blocks, HTML tags, or surrounding whitespace 
+        from raw LLM output.
         """
         text = raw_text.strip()
 
         # Handle ```json ... ``` or ``` ... ```
-        json_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+        json_block_match = re.search(
+            r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE
+        )
         if json_block_match:
             text = json_block_match.group(1).strip()
 
-        # If text still contains non-JSON prefix/suffix, find the first '{' and last '}'
+        # If text still contains non-JSON prefix/suffix, find first '{' and last '}'
         start_idx = text.find("{")
         end_idx = text.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
@@ -60,27 +69,45 @@ class RequirementAnalyzer:
         latency_ms: float,
         error: Optional[Exception],
     ) -> None:
+        """Record LLM request metadata to the database."""
         if self.db is None:
             return
 
-        provider_name = type(self.provider).__name__.removesuffix("Provider").lower()
-        if provider_name == "mockllm":
-            provider_name = "mock"
-        model = getattr(self.provider, "model", None)
-        self.db.add(LLMRequest(
-            project_id=self.project_id,
-            provider=provider_name,
-            model=model,
-            model_version=getattr(self.provider, "model_version", None),
-            prompt_tokens=(len(prompt) + 3) // 4,
-            response_tokens=(len(response) + 3) // 4 if response else 0,
-            latency_ms=round(latency_ms, 2),
-            status="failure" if error else "success",
-            error_message=str(error)[:2000] if error else None,
-        ))
-        self.db.commit()
+        try:
+            provider_name = type(self.provider).__name__.removesuffix("Provider").lower()
+            if provider_name == "mockllm":
+                provider_name = "mock"
+            if not provider_name:
+                provider_name = "unknown"
+
+            # ✅ CRITICAL: Ensure model is never None
+            model = getattr(self.provider, "model", None) or "unknown"
+
+            self.db.add(
+                LLMRequest(
+                    project_id=self.project_id,
+                    provider=provider_name,
+                    model=model,
+                    model_version=getattr(self.provider, "model_version", None),
+                    prompt_tokens=(len(prompt) + 3) // 4,
+                    response_tokens=(len(response) + 3) // 4 if response else 0,
+                    latency_ms=round(latency_ms, 2),
+                    status="failure" if error else "success",
+                    error_message=str(error)[:2000] if error else None,
+                )
+            )
+            self.db.commit()
+
+        except Exception as log_error:
+            # ✅ Never crash the request due to logging failure
+            logger.warning("Failed to record LLM request: %s", log_error)
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
 
     async def _generate(self, prompt: str, system_prompt: str) -> str:
+        """Call LLM provider with logging."""
         started_at = time.perf_counter()
         response = None
         failure = None
@@ -105,6 +132,7 @@ class RequirementAnalyzer:
         project_name: str,
         failure: Exception,
     ) -> RawAIAnalysisResponse:
+        """Fallback to mock provider when primary fails."""
         from app.ai.providers.mock_provider import MockLLMProvider
 
         primary_provider = self.provider
@@ -145,16 +173,23 @@ class RequirementAnalyzer:
         self,
         project_name: str,
         description: str,
-        platform: str = "Web"
+        platform: str = "Web",
     ) -> RawAIAnalysisResponse:
         """
-        Execute requirement analysis on project input, with automatic validation and retry.
+        Execute requirement analysis on project input, 
+        with automatic validation and retry.
         """
         if not description or len(description.strip()) < 5:
-            raise LLMValidationException("Project description must be at least 5 characters long.")
+            raise LLMValidationException(
+                "Project description must be at least 5 characters long."
+            )
 
-        prompt = build_analysis_prompt(project_name=project_name, description=description, platform=platform)
-        prompt = prompt[:settings.MAX_PROMPT_LENGTH]
+        prompt = build_analysis_prompt(
+            project_name=project_name,
+            description=description,
+            platform=platform,
+        )
+        prompt = prompt[: settings.MAX_PROMPT_LENGTH]
         last_raw_response = ""
         last_error = ""
 
@@ -170,7 +205,9 @@ class RequirementAnalyzer:
                         f"Please output strictly valid JSON matching the exact schema."
                     )
 
-                logger.info("Invoking LLM requirement analyzer (attempt %s/2).", attempt + 1)
+                logger.info(
+                    "Invoking LLM requirement analyzer (attempt %s/2).", attempt + 1
+                )
                 raw_response = await self._generate(current_prompt, SYSTEM_PROMPT)
                 last_raw_response = raw_response
 
@@ -189,29 +226,37 @@ class RequirementAnalyzer:
 
             except json.JSONDecodeError as json_err:
                 last_error = f"Malformed JSON: {str(json_err)}"
-                logger.warning("Attempt %s produced malformed JSON: %s", attempt + 1, json_err)
+                logger.warning(
+                    "Attempt %s produced malformed JSON: %s", attempt + 1, json_err
+                )
                 if attempt == 1:
                     from app.ai.providers.mock_provider import MockLLMProvider
 
                     if not isinstance(self.provider, MockLLMProvider):
-                        return await self._fallback_to_mock(current_prompt, project_name, json_err)
+                        return await self._fallback_to_mock(
+                            current_prompt, project_name, json_err
+                        )
                     raise LLMValidationException(
                         message=f"Failed to parse LLM response as valid JSON: {str(json_err)}",
-                        raw_output=last_raw_response
+                        raw_output=last_raw_response,
                     )
 
             except ValidationError as val_err:
                 last_error = f"Schema validation error: {str(val_err)}"
-                logger.warning("Attempt %s failed schema validation: %s", attempt + 1, val_err)
+                logger.warning(
+                    "Attempt %s failed schema validation: %s", attempt + 1, val_err
+                )
                 if attempt == 1:
                     from app.ai.providers.mock_provider import MockLLMProvider
 
                     if not isinstance(self.provider, MockLLMProvider):
-                        return await self._fallback_to_mock(current_prompt, project_name, val_err)
+                        return await self._fallback_to_mock(
+                            current_prompt, project_name, val_err
+                        )
                     raise LLMValidationException(
                         message=f"LLM response violated required schema: {str(val_err)}",
                         raw_output=last_raw_response,
-                        details=val_err.errors()
+                        details=val_err.errors(),
                     )
 
             except Exception as provider_error:
@@ -222,6 +267,10 @@ class RequirementAnalyzer:
                         str(provider_error),
                         provider=type(self.provider).__name__,
                     ) from provider_error
-                return await self._fallback_to_mock(current_prompt, project_name, provider_error)
+                return await self._fallback_to_mock(
+                    current_prompt, project_name, provider_error
+                )
 
-        raise LLMValidationException("Analysis failed after maximum retries.", raw_output=last_raw_response)
+        raise LLMValidationException(
+            "Analysis failed after maximum retries.", raw_output=last_raw_response
+        )

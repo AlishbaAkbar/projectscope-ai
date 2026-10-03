@@ -17,7 +17,10 @@ class MockLLMProvider(BaseProvider):
     """
 
     def __init__(self, **kwargs):
-        pass
+        self.model = "mock"           # ✅ ADD
+        self.provider = "mock"        # ✅ ADD
+        self.api_key = None
+        self.timeout = 30.0
 
     async def analyze(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         return await self.generate(prompt, system_prompt)

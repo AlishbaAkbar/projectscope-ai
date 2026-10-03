@@ -12,7 +12,7 @@ class LLMRequest(Base):
     project_id = Column(Integer, index=True, nullable=True)
 
     provider = Column(String(50), nullable=False)
-    model = Column(String(100), nullable=False)
+    model = Column(String(100), nullable=True, default="unknown")
     model_version = Column(String(50), nullable=True)
 
     prompt_tokens = Column(Integer, nullable=True)
