@@ -1,0 +1,176 @@
+version: "3.9"
+
+# ============================================
+# PROJECTSCOPE AI — PRODUCTION STACK
+# ============================================
+
+services:
+  # --------------------------------------------
+  # PostgreSQL Database
+  # --------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: projectscope_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-projectscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-projectscope}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - projectscope_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-projectscope}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "5432"
+
+  # --------------------------------------------
+  # Redis (Cache + Queue)
+  # --------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: projectscope_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - projectscope_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "6379"
+
+  # --------------------------------------------
+  # Backend (FastAPI)
+  # --------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: projectscope_backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-projectscope}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-projectscope}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY}
+      AI_MODEL: ${AI_MODEL:-gemini-flash-latest}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      CORS_ORIGINS: '["https://${DOMAIN}", "https://www.${DOMAIN}"]'
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_PER_MINUTE: 60
+      RATE_LIMIT_AUTH_PER_MINUTE: 5
+      RATE_LIMIT_AI_PER_MINUTE: 10
+      ENABLE_AUDIT_LOG: "true"
+      ENABLE_SECURITY_HEADERS: "true"
+      MAX_REQUEST_SIZE_MB: 5
+      MAX_PROMPT_LENGTH: 10000
+      AI_TIMEOUT_SECONDS: 30.0
+      AI_MAX_RETRIES: 2
+      AI_MAX_TOKENS: 4000
+    volumes:
+      - backend_data:/app/data
+      - ./backend/ml/models:/app/ml/models
+    networks:
+      - projectscope_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    expose:
+      - "8000"
+
+  # --------------------------------------------
+  # Frontend (Next.js)
+  # --------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api/v1
+    container_name: projectscope_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api/v1
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    networks:
+      - projectscope_net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    expose:
+      - "3000"
+
+  # --------------------------------------------
+  # Nginx (Reverse Proxy + TLS)
+  # --------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: projectscope_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - projectscope_net
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ============================================
+# VOLUMES
+# ============================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_data:
+    driver: local
+
+# ============================================
+# NETWORKS
+# ============================================
+networks:
+  projectscope_net:
+    driver: bridge

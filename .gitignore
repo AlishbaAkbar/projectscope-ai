@@ -66,6 +66,12 @@ backend/ml/models/*.pkl
 !backend/ml/data/.gitkeep
 !backend/ml/models/.gitkeep
 
+# Production
+.env.prod
+nginx/certs/
+backups/
+nginx/logs/
+
 # Temporary files
 *.tmp
 *.temp
