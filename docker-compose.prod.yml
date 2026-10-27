@@ -99,7 +99,35 @@ services:
       start_period: 40s
     expose:
       - "8000"
-
+  # --------------------------------------------
+  # Background Worker (RQ)
+  # --------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: projectscope_worker
+    restart: unless-stopped
+    command: rq worker analysis reports emails --url ${REDIS_URL}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-projectscope}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-projectscope}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY}
+      AI_MODEL: ${AI_MODEL:-gemini-flash-latest}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: HS256
+    volumes:
+      - backend_data:/app/data
+      - ./backend/ml/models:/app/ml/models
+    networks:
+      - projectscope_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
   # --------------------------------------------
   # Frontend (Next.js)
   # --------------------------------------------

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware as StarletteCORS
-
+from app.api.routes.jobs import router as jobs_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.metrics import router as metrics_router
 from app.api.routes.projects import router as projects_router
@@ -86,7 +86,7 @@ app.add_middleware(
 app.include_router(metrics_router, tags=["Observability"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(projects_router, prefix="/api/v1", tags=["Projects"])
-
+app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
 
 @app.get("/")
 async def root():
